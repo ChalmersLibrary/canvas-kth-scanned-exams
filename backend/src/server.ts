@@ -27,18 +27,16 @@ const store = new MongoDBStore({
   expiresAfterSeconds: COOKIE_MAX_AGE_SECONDS,
 });
 
-server.set("trust proxy", 1);
+if (process.env.NODE_ENV === "production") {
+  server.set("trust proxy", 1);
+}
 server.use(
   session({
     name: "scanned-exams.sid",
     cookie: {
-      domain: "kth.se",
       maxAge: COOKIE_MAX_AGE_SECONDS * 1000,
-      httpOnly: true,
-      secure: true,
-      sameSite: process.env.CANVAS_API_URL.endsWith("kth.se")
-        ? "strict"
-        : "none",
+      secure: process.env.NODE_ENV === "production" ? true : false,
+      sameSite: process.env.NODE_ENV === "production" ? "strict" : "none",
     },
     // MongoDB does not update TTL when reading but when writing
     resave: true,
@@ -86,8 +84,10 @@ function _showOnlyHostname(inp: string): string {
 }
 server.post("/scanned-exams", async (req, res) => {
   try {
-    const domain = req.body.custom_domain;
-    const courseId = req.body.custom_courseid;
+    /*const domain = req.body.custom_domain;
+    const courseId = req.body.custom_courseid;*/
+    const domain = req.body.custom_canvas_api_domain;
+    const courseId = req.body.custom_canvas_course_id;
 
     // TODO: if domain is kth.test.instructure.com > Redirect to the app in referens
     // TODO: if domain is kth.instructure.com > Show a message encouraging people to use "canvas.kth.se"

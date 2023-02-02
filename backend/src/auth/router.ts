@@ -21,7 +21,7 @@ const OAUTH_REDIRECT_URI = new URL(
 );
 
 const issuer = new Issuer({
-  issuer: "se.kth",
+  issuer: "se.chalmers",
   authorization_endpoint: new URL(
     "/login/oauth2/auth",
     process.env.CANVAS_API_URL

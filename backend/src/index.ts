@@ -1,1 +1,1 @@
-import "./app-https";
+import "./app";
