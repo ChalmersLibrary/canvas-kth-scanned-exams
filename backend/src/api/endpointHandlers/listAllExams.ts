@@ -33,6 +33,14 @@ async function listScannedExams(courseId, ladokId) {
     `Obtained exams for course [${courseId}] ladokId [${ladokId}]: ${allScannedExams.length}`
   );
 
+  if (allScannedExams.length == 0) {
+    allScannedExams = await tentaApi.examListByLadokId(ladokId + "_CTH");
+  }
+
+  log.info(
+    `Obtained exams for course [${courseId}] ladokId [${ladokId}]: ${allScannedExams.length}`
+  );
+
   return allScannedExams;
 }
 

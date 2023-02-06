@@ -28,4 +28,4 @@ COPY . .
 
 EXPOSE 4000
 
-CMD cd backend && npm run start
+CMD cd backend && export PINO_LOG_LEVEL="debug" && env && npm run start

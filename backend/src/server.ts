@@ -19,7 +19,7 @@ const store = new MongoDBStore({
   collection: "sessions",
 
   // Session expiration time
-  expires: COOKIE_MAX_AGE_SECONDS * 1000,
+  expires: COOKIE_MAX_AGE_SECONDS * 10000,
 
   // These two lines are required when using CosmosDB
   // See https://github.com/mongodb-js/connect-mongodb-session#azure-cosmos-mongodb-support
@@ -27,16 +27,15 @@ const store = new MongoDBStore({
   expiresAfterSeconds: COOKIE_MAX_AGE_SECONDS,
 });
 
-if (process.env.NODE_ENV === "production") {
-  server.set("trust proxy", 1);
-}
+server.set("trust proxy", 1);
 server.use(
   session({
     name: "scanned-exams.sid",
     cookie: {
-      maxAge: COOKIE_MAX_AGE_SECONDS * 1000,
-      secure: process.env.NODE_ENV === "production" ? true : false,
-      sameSite: process.env.NODE_ENV === "production" ? "strict" : "none",
+      // domain: "localhost",
+      maxAge: COOKIE_MAX_AGE_SECONDS * 10000,
+      secure: true,
+      sameSite: "none",
     },
     // MongoDB does not update TTL when reading but when writing
     resave: true,
@@ -47,6 +46,8 @@ server.use(
     store,
   })
 );
+
+log.level = "debug";
 
 server.use(log.middleware);
 server.use((req, res, next) => {

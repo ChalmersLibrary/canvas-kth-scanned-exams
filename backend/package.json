@@ -7,7 +7,7 @@
   "description": "Backend of the Scanned Exams service. Application integrated into the Canvas LMS that download paper exams from the 'Tenta API' and uploads them into Canvas",
   "main": "index.js",
   "scripts": {
-    "start": "ts-node --transpile-only src/app.ts",
+    "start": "ts-node --transpile-only src/index.ts",
     "dev": "ts-node-dev --respawn src/index.ts | pino-pretty -e options,response -o '{msg}' --ignore options,pid,hostname,app,req_id --singleLine --translateTime 'HH:MM:ss.l'",
     "format": "prettier --write .",
     "test:lint": "tsc --noEmit src/**/*.ts",

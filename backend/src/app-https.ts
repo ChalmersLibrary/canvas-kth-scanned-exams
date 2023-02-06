@@ -22,7 +22,7 @@ function startApiServer(sslCerts) {
 try {
   const sslCerts = {
     key: fs.readFileSync("certs/key.pem"),
-    cert: fs.readFileSync("certs/cert.pem"),
+    cert: fs.readFileSync("certs/server.crt"),
   };
   startApiServer(sslCerts);
 } catch (err) {

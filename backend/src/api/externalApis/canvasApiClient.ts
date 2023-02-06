@@ -32,17 +32,20 @@ if (process.env.NODE_ENV === "test") {
  */
 const TEMPLATES = {
   assignment: {
-    en: "courses/33450/assignments/178066",
-    sv: "courses/33450/assignments/178752",
+    en: "courses/24550/assignments/68009",
+    sv: "courses/24550/assignments/68009", // Assignment: 50 points, Online, File Upload (test)
   },
   homepage: {
     en: "courses/33450/pages/151311",
-    sv: "courses/33450/pages/151959",
+    sv: "courses/33450/pages/151959", // Not used for Chalmers, course page already created
   },
 };
 
 /** Get data from one canvas course */
 async function getCourse(courseId) {
+  console.log(canvas);
+  console.log("getCourse(" + courseId + ")");
+  
   const { body } = await canvas
     .get<any>(`courses/${courseId}`)
     .catch(canvasApiGenericErrorHandler);
@@ -91,9 +94,12 @@ async function getAktivitetstillfalleUIDs(courseId) {
     .listItems<any>(`courses/${courseId}/sections`)
     .toArray()
     .catch(canvasApiGenericErrorHandler);
+  log.info(sections);
 
   // For SIS IDs with format "AKT.<ladok id>.<suffix>", take the "<ladok id>"
-  const REGEX = /^AKT\.([\w-]+)/;
+  const REGEX = /^\d+_([0-9a-fA-F]{8}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{12})/; // TODO: Make configurable via ENV
+  log.info("Regex for Ladok UID in Canvas section: " + REGEX);
+
   const sisIds = sections
     .map((section) => section.sis_section_id?.match(REGEX)?.[1])
     .filter((sisId) => sisId /* Filter out null and undefined */);
@@ -169,7 +175,28 @@ async function getAssignmentSubmissions(courseId, assignmentId) {
 }
 
 async function createAssignment(courseId, ladokId, language = "en") {
-  const examination = await getAktivitetstillfalle(ladokId);
+  /**
+   * return {
+   *   activities: body.Kopplingar.map((k) => ({
+   *     examCode: k.Aktivitet.Utbildningskod,
+   *     courseCode: k.Kursinstans.Utbildningskod,
+   *   })),
+   *   examDate: body.Datumperiod.Startdatum,
+   * };
+   */
+  /* const { body: course } = await canvas
+    .get<any>(`courses/${courseId}`)
+    .catch(canvasApiGenericErrorHandler);
+  const course = body; */
+  const course = await getCourse(courseId);
+  console.log(course);
+
+  // const examination = await getAktivitetstillfalle(ladokId); // We don't need Ladok for this, should be in Canvas course
+  const examination = {
+    examDate: course.start_at.substr(0, 10),
+  };
+  console.log(examination);
+
   const { body: template } = await canvas
     .get<any>(TEMPLATES.assignment[language])
     .catch(canvasApiGenericErrorHandler);
