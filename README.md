@@ -73,11 +73,14 @@ This repository also contains two more projects:
 
 ### Generating self-signed certs with openssl
 
-```openssl req -newkey rsa:2048 -new -nodes -keyout key.pem -out csr.pem
-openssl x509 -req -days 365 -in csr.pem -signkey key.pem -out server.crt```
-
 Even a development server running Docker on localhost must be started with SSL/https because of cookie issues with openid-client (state) otherwise.
+
+```openssl req -newkey rsa:2048 -new -nodes -keyout key.pem -out csr.pem
+```
+```openssl x509 -req -days 365 -in csr.pem -signkey key.pem -out server.crt
+```
 
 When addressing MongoDB on localhost from within a Docker image for scanned-exams:
 
-```MONGODB_CONNECTION_STRING=mongodb://host.docker.internal:27017/scanned-exams```
+```MONGODB_CONNECTION_STRING=mongodb://host.docker.internal:27017/scanned-exams
+```
