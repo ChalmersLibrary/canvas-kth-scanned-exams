@@ -19,7 +19,7 @@ const store = new MongoDBStore({
   collection: "sessions",
 
   // Session expiration time
-  expires: COOKIE_MAX_AGE_SECONDS * 10000,
+  expires: COOKIE_MAX_AGE_SECONDS * 1000,
 
   // These two lines are required when using CosmosDB
   // See https://github.com/mongodb-js/connect-mongodb-session#azure-cosmos-mongodb-support
@@ -33,7 +33,7 @@ server.use(
     name: "scanned-exams.sid",
     cookie: {
       // domain: "localhost",
-      maxAge: COOKIE_MAX_AGE_SECONDS * 10000,
+      maxAge: COOKIE_MAX_AGE_SECONDS * 1000,
       secure: true,
       sameSite: "none",
     },
