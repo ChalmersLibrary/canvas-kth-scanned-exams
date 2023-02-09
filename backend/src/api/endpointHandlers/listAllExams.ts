@@ -25,9 +25,14 @@ function throwIfNotExactlyOneLadokId(ladokIds, courseId) {
   }
 }
 
-/** Returns a list of scanned exams (i.e. in Windream) given its ladokId */
+/** Returns a list of scanned exams (i.e. in Windream) given its ladokId
+ * 
+ * Chalmers: If no scanned exams are found, also try searching with "<LadokUUID>_CTH" and "<LadokUUID>_GU".
+ * There could be CTH+GU exam rooms, where the UUIDs are different in different sections. This is not supported
+ * (yet) in this application.
+ */
 async function listScannedExams(courseId, ladokId) {
-  const allScannedExams = await tentaApi.examListByLadokId(ladokId);
+  let allScannedExams = await tentaApi.examListByLadokId(ladokId);
 
   log.info(
     `Obtained exams for course [${courseId}] ladokId [${ladokId}]: ${allScannedExams.length}`
@@ -35,11 +40,22 @@ async function listScannedExams(courseId, ladokId) {
 
   if (allScannedExams.length == 0) {
     allScannedExams = await tentaApi.examListByLadokId(ladokId + "_CTH");
+
+    log.info(
+      `Obtained exams for course [${courseId}] ladokId [${ladokId}_CTH]: ${allScannedExams.length}`
+    );
   }
 
-  log.info(
-    `Obtained exams for course [${courseId}] ladokId [${ladokId}]: ${allScannedExams.length}`
-  );
+
+  if (allScannedExams.length == 0) {
+    allScannedExams = await tentaApi.examListByLadokId(ladokId + "_GU");
+
+    log.info(
+      `Obtained exams for course [${courseId}] ladokId [${ladokId}_GU]: ${allScannedExams.length}`
+    );
+  }
+
+  
 
   return allScannedExams;
 }

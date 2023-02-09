@@ -99,6 +99,9 @@ async function downloadExam(fileId) {
     lastName: getValue("s_lastname"),
   };
 
+  // Chalmers: just a debug logging to understand the data being written
+  log.info(JSON.stringify(student));
+
   if (!student.kthId)
     throw new Error(
       `Could not get KTH ID (s_uid) from TentaAPI (windream) for file id "${fileId}".`

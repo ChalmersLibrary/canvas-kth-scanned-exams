@@ -94,11 +94,11 @@ async function getAktivitetstillfalleUIDs(courseId) {
     .listItems<any>(`courses/${courseId}/sections`)
     .toArray()
     .catch(canvasApiGenericErrorHandler);
-  log.info(sections);
+  log.debug(sections);
 
   // For SIS IDs with format "AKT.<ladok id>.<suffix>", take the "<ladok id>"
   const REGEX = /^\d+_([0-9a-fA-F]{8}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{12})/; // TODO: Make configurable via ENV
-  log.info("Regex for Ladok UID in Canvas section: " + REGEX);
+  log.debug("Regex for Ladok UID in Canvas section: " + REGEX);
 
   const sisIds = sections
     .map((section) => section.sis_section_id?.match(REGEX)?.[1])
@@ -107,6 +107,8 @@ async function getAktivitetstillfalleUIDs(courseId) {
   // Deduplicate IDs (there are usually one "funka" and one "non-funka" with
   // the same Ladok ID)
   const uniqueIds = Array.from(new Set(sisIds));
+
+  log.info(`Ladok UUID ${uniqueIds.toString()} for Canvas course ${courseId}`);
 
   return uniqueIds as string[];
 }
@@ -139,14 +141,20 @@ async function getExaminationLadokId(courseId) {
 }
 
 async function getValidAssignment(courseId, ladokId) {
+  const thisPath = `courses/${courseId}/assignments`;
+  log.info("GET " + thisPath);
   const assignments = await canvas
-    .listItems<any>(`courses/${courseId}/assignments`)
+    .listItems<any>(thisPath)
     .toArray()
     .catch(canvasApiGenericErrorHandler);
 
+  log.info(`Assignments for courseId ${courseId}: ${assignments.length}`);
+  log.info(`Assignments with integration_data.ladokId ${ladokId} : ${assignments.filter(x => x.integration_data?.ladokId == ladokId).length}`);
+
   // TODO: Filter more strictly?
+  // Chalmers: Changed === to ==, don't know why it didn't work?!? The types where not the same... 
   return (
-    assignments.find((a) => a.integration_data?.ladokId === ladokId) ?? null
+    assignments.find((a) => a.integration_data?.ladokId == ladokId)
   );
 }
 
@@ -319,13 +327,29 @@ async function uploadExam(
   { courseId, studentKthId, examDate, fileId }
 ) {
   try {
+    // Chalmers: In our Canvas, sis_user_id is "pnr", not the login id (what is mapped to studentKthId).
+    // TODO: Rename "studentKthId" with something more general like "studentId"?
+    let canvasApiUserQueryUrl;
+    if (process.env.CANVAS_USER_KEY_IS_LOGIN_ID) {
+      canvasApiUserQueryUrl = `users/sis_login_id:${studentKthId}@chalmers.se`;
+    }
+    else {
+      canvasApiUserQueryUrl = `users/sis_user_id:${studentKthId}`;
+    }
+
+    log.info("Get user details: " + canvasApiUserQueryUrl);
+    
     const { body: user } = await canvas
-      .get<any>(`users/sis_user_id:${studentKthId}`)
+      .get<any>(canvasApiUserQueryUrl)
       .catch(canvasApiGenericErrorHandler);
 
-    const ladokId = await getExaminationLadokId(courseId);
+    // Chalmers: function says "kept for backwards compatibility"???
+    // const ladokId = await getExaminationLadokId(courseId);
+    const ladokId = await getAktivitetstillfalleUIDs(courseId);
     const assignment = await getValidAssignment(courseId, ladokId);
-    log.debug(
+    log.info("Found Assignment: " + JSON.stringify(assignment));
+
+    log.info( // originally: debug
       `Upload Exam: unlocking assignment ${assignment.id} in course ${courseId}`
     );
 
@@ -340,6 +364,7 @@ async function uploadExam(
         }
       )
       .catch((err): never => {
+        log.error(err);
         if (err.response?.statusCode === 404) {
           // Student is missing in Canvas, we can fix this
           throw new ImportError({
