@@ -32,30 +32,26 @@ function throwIfNotExactlyOneLadokId(ladokIds, courseId) {
  * (yet) in this application.
  */
 async function listScannedExams(courseId, ladokId) {
-  let allScannedExams = await tentaApi.examListByLadokId(ladokId);
+  let searchKeys = [];
+  searchKeys.push(ladokId);
 
-  log.info(
-    `Obtained exams for course [${courseId}] ladokId [${ladokId}]: ${allScannedExams.length}`
-  );
-
-  if (allScannedExams.length == 0) {
-    allScannedExams = await tentaApi.examListByLadokId(ladokId + "_CTH");
-
-    log.info(
-      `Obtained exams for course [${courseId}] ladokId [${ladokId}_CTH]: ${allScannedExams.length}`
-    );
+  if (process.env.TENTA_API_LADOKID_ADDITIONAL_SUFFIXES) {
+    for (const suffix of process.env.TENTA_API_LADOKID_ADDITIONAL_SUFFIXES.split(",")) {
+      searchKeys.push(ladokId + suffix);
+    }
   }
 
-
-  if (allScannedExams.length == 0) {
-    allScannedExams = await tentaApi.examListByLadokId(ladokId + "_GU");
-
-    log.info(
-      `Obtained exams for course [${courseId}] ladokId [${ladokId}_GU]: ${allScannedExams.length}`
-    );
-  }
-
+  let allScannedExams = [];
   
+  for (const key of searchKeys) {
+    if (allScannedExams.length == 0) {
+      allScannedExams = await tentaApi.examListByLadokId(key);
+
+      log.info(
+        `Exams for course [${courseId}] ladokId [${key}]: ${allScannedExams.length}`
+      );
+    }
+  }
 
   return allScannedExams;
 }
