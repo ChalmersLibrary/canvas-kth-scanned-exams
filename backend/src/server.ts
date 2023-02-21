@@ -47,8 +47,6 @@ server.use(
   })
 );
 
-log.level = "debug";
-
 server.use(log.middleware);
 server.use((req, res, next) => {
   // Get courseId from path if available
@@ -87,6 +85,7 @@ server.post("/scanned-exams", async (req, res) => {
   try {
     /*const domain = req.body.custom_domain;
     const courseId = req.body.custom_courseid;*/
+    // TODO: These mappings are different for Chalmers, how to generalize?
     const domain = req.body.custom_canvas_api_domain;
     const courseId = req.body.custom_canvas_course_id;
 

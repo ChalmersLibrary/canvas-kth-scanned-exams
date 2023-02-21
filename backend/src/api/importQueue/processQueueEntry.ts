@@ -45,29 +45,32 @@ async function uploadOneExam({ fileId, courseId }) {
   );
 
   // Some business rules
-  throwIfStudentMissingKTHID({ fileId, fileName, studentKthId: student.kthId });
+  throwIfStudentMissingKTHID({ fileId, fileName, studentKthId: student.userId });
   throwIfStudentNotInUg({
     fileId,
     fileName,
     studentPersNr: student.personNumber,
   });
 
+  // TODO: Chalmers: we should rather check if student.userId (CID) is missing and then try
+  //       to find it using the student.personNumber (search on sis_user_id s_pnr)
+
   await updateStudentOfEntryInQueue({ fileId }, student);
 
   log.debug(
-    `Course ${courseId} / File ${fileId}, ${fileName} / User ${student.kthId}. Uploading`
+    `Course ${courseId} / File ${fileId}, ${fileName} / User ${student.userId}. Uploading`
   );
   const uploadExamStart = Date.now();
   const submissionTimestamp = await canvasApi.uploadExam(content, {
     courseId,
-    studentKthId: student.kthId,
+    studentKthId: student.userId,
     examDate,
     fileId,
   });
   log.debug("Time to upload exam: " + (Date.now() - uploadExamStart) + "ms");
 
   log.info(
-    `Course ${courseId} / File ${fileId}, ${fileName} / User ${student.kthId}. Uploaded! Timestamp @ ${submissionTimestamp}`
+    `Course ${courseId} / File ${fileId}, ${fileName} / User ${student.userId}. Uploaded! Timestamp @ ${submissionTimestamp}`
   );
 }
 
