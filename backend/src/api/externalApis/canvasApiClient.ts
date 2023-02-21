@@ -36,8 +36,8 @@ const TEMPLATES = {
     sv: process.env.CANVAS_TEMPLATE_ASSIGNMENT_SV ? process.env.CANVAS_TEMPLATE_ASSIGNMENT_SV : "courses/24550/assignments/68009",
   },
   homepage: {
-    en: process.env.CANVAS_TEMPLATE_COURSE_HOMEPAGE_EN ? CANVAS_TEMPLATE_COURSE_HOMEPAGE_EN : "courses/33450/pages/151311",
-    sv: process.env.CANVAS_TEMPLATE_COURSE_HOMEPAGE_SV ? CANVAS_TEMPLATE_COURSE_HOMEPAGE_SV : "courses/33450/pages/151959",
+    en: process.env.CANVAS_TEMPLATE_COURSE_HOMEPAGE_EN ? process.env.CANVAS_TEMPLATE_COURSE_HOMEPAGE_EN : "courses/33450/pages/151311",
+    sv: process.env.CANVAS_TEMPLATE_COURSE_HOMEPAGE_SV ? process.env.CANVAS_TEMPLATE_COURSE_HOMEPAGE_SV : "courses/33450/pages/151959",
   },
 };
 
