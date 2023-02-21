@@ -32,20 +32,17 @@ if (process.env.NODE_ENV === "test") {
  */
 const TEMPLATES = {
   assignment: {
-    en: "courses/24550/assignments/68009",
-    sv: "courses/24550/assignments/68009", // Assignment: 50 points, Online, File Upload (test)
+    en: process.env.CANVAS_TEMPLATE_ASSIGNMENT_EN ? process.env.CANVAS_TEMPLATE_ASSIGNMENT_EN : "courses/24550/assignments/68009",
+    sv: process.env.CANVAS_TEMPLATE_ASSIGNMENT_SV ? process.env.CANVAS_TEMPLATE_ASSIGNMENT_SV : "courses/24550/assignments/68009",
   },
   homepage: {
-    en: "courses/33450/pages/151311",
-    sv: "courses/33450/pages/151959", // Not used for Chalmers, course page already created
+    en: process.env.CANVAS_TEMPLATE_COURSE_HOMEPAGE_EN ? CANVAS_TEMPLATE_COURSE_HOMEPAGE_EN : "courses/33450/pages/151311",
+    sv: process.env.CANVAS_TEMPLATE_COURSE_HOMEPAGE_SV ? CANVAS_TEMPLATE_COURSE_HOMEPAGE_SV : "courses/33450/pages/151959",
   },
 };
 
 /** Get data from one canvas course */
 async function getCourse(courseId) {
-  console.log(canvas);
-  console.log("getCourse(" + courseId + ")");
-  
   const { body } = await canvas
     .get<any>(`courses/${courseId}`)
     .catch(canvasApiGenericErrorHandler);
@@ -94,11 +91,12 @@ async function getAktivitetstillfalleUIDs(courseId) {
     .listItems<any>(`courses/${courseId}/sections`)
     .toArray()
     .catch(canvasApiGenericErrorHandler);
-  log.debug(sections);
 
-  // For SIS IDs with format "AKT.<ladok id>.<suffix>", take the "<ladok id>"
-  const REGEX = /^\d+_([0-9a-fA-F]{8}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{12})/; // TODO: Make configurable via ENV
-  log.debug("Regex for Ladok UID in Canvas section: " + REGEX);
+  log.info(sections);
+
+  // Get the Ladok UUID from the Sections SIS ID, configurable regex
+  const REGEX = process.env.CANVAS_SECTION_LADOKID_REGEX ? new RegExp(process.env.CANVAS_SECTION_LADOKID_REGEX) : /([0-9a-fA-F]{8}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{12})/;
+  log.info("Regex for Ladok UUID in Canvas section: " + REGEX);
 
   const sisIds = sections
     .map((section) => section.sis_section_id?.match(REGEX)?.[1])
@@ -108,7 +106,7 @@ async function getAktivitetstillfalleUIDs(courseId) {
   // the same Ladok ID)
   const uniqueIds = Array.from(new Set(sisIds));
 
-  log.info(`Ladok UUID ${uniqueIds.toString()} for Canvas course ${courseId}`);
+  log.info(`Found Ladok UUID ${uniqueIds.toString()} for Canvas course "${courseId}"`);
 
   return uniqueIds as string[];
 }
@@ -143,6 +141,7 @@ async function getExaminationLadokId(courseId) {
 async function getValidAssignment(courseId, ladokId) {
   const thisPath = `courses/${courseId}/assignments`;
   log.info("GET " + thisPath);
+
   const assignments = await canvas
     .listItems<any>(thisPath)
     .toArray()
@@ -183,19 +182,6 @@ async function getAssignmentSubmissions(courseId, assignmentId) {
 }
 
 async function createAssignment(courseId, ladokId, language = "en") {
-  /**
-   * return {
-   *   activities: body.Kopplingar.map((k) => ({
-   *     examCode: k.Aktivitet.Utbildningskod,
-   *     courseCode: k.Kursinstans.Utbildningskod,
-   *   })),
-   *   examDate: body.Datumperiod.Startdatum,
-   * };
-   */
-  /* const { body: course } = await canvas
-    .get<any>(`courses/${courseId}`)
-    .catch(canvasApiGenericErrorHandler);
-  const course = body; */
   const course = await getCourse(courseId);
   console.log(course);
 
@@ -203,7 +189,8 @@ async function createAssignment(courseId, ladokId, language = "en") {
   const examination = {
     examDate: course.start_at.substr(0, 10),
   };
-  console.log(examination);
+
+  log.info(examination);
 
   const { body: template } = await canvas
     .get<any>(TEMPLATES.assignment[language])
@@ -223,6 +210,9 @@ async function createAssignment(courseId, ladokId, language = "en") {
         notify_of_update: false,
         // TODO: take the grading standard from TentaAPI
         //       grading_standard_id: 1,
+        // TODO: Chalmers: Anonymous grading, depends on if there is index "s_code" from Aldoc,
+        //       not sure how to find out about this, take first file matching Ladok UUID and check?
+        //       anonymize_students: true,
       },
     })
     .then((r) => r.body as any)
