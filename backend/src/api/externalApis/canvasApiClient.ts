@@ -314,7 +314,7 @@ async function hasSubmission({ courseId, assignmentId, userId }) {
 
 async function uploadExam(
   content,
-  { courseId, studentKthId, examDate, fileId }
+  { courseId, studentKthId, studentAnonymousCode, examDate, fileId }
 ) {
   try {
     // Chalmers: In our Canvas, sis_user_id is "pnr", not the login id (what is mapped to studentKthId).
@@ -339,7 +339,7 @@ async function uploadExam(
     const assignment = await getValidAssignment(courseId, ladokId);
     log.info("Found Assignment: " + JSON.stringify(assignment));
 
-    log.info( // originally: debug
+    log.info( // Chalmers: originally: debug
       `Upload Exam: unlocking assignment ${assignment.id} in course ${courseId}`
     );
 
@@ -411,18 +411,29 @@ async function uploadExam(
     );
     const { submitted_at } = submissionProps;
 
+    let submissionObject = {
+      submission: {
+        ...submissionProps,
+        submission_type: "online_upload",
+        user_id: user.id,
+        file_ids: [uploadedFile.id],
+      }
+    };
+
+    // Add the "Anonymkod" as a text comment if it exists
+    if (studentAnonymousCode) {
+      submissionObject.comment = {
+        text_comment: studentAnonymousCode,
+      };
+    }
+
+    log.info(submissionObject);
+
     await canvas
       .request(
         `courses/${courseId}/assignments/${assignment.id}/submissions/`,
         "POST",
-        {
-          submission: {
-            ...submissionProps,
-            submission_type: "online_upload",
-            user_id: user.id,
-            file_ids: [uploadedFile.id],
-          },
-        }
+        submissionObject
       )
       .catch(canvasApiGenericErrorHandler);
 

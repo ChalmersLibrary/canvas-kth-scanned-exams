@@ -22,6 +22,8 @@ interface WindreamsScannedExam {
   fileId: number;
   student: {
     id: string;
+    personNumber: string;
+    anonymousCode: string;
     firstName: string;
     lastName: string;
   };
@@ -60,12 +62,13 @@ async function examListByLadokId(ladokId): Promise<WindreamsScannedExam[]> {
     const getValue = (index) =>
       result.documentIndiceses.find((di) => di.index === index)?.value;
 
-    // TODO: Chalmers: should we check s_uid here and find it with sis_user_id s_pnr instead?
     outp.push({
       createDate: result.createDate,
       fileId: result.fileId,
       student: {
         id: getValue("s_uid"),
+        personNumber: getValue("s_pnr"),
+        anonymousCode: getValue("s_code"),
         firstName: getValue("s_firstname"),
         lastName: getValue("s_lastname"),
       },
@@ -94,10 +97,9 @@ async function downloadExam(fileId) {
   const examDateTime = getValue("e_date");
   const examDate = examDateTime.split("T")[0];
   const student = {
-    userId: getValue("s_uid"),
+    id: getValue("s_uid"),
     personNumber: getValue("s_pnr"),
-    // TODO: Chalmers: add property for "anonymkod" here:
-    //       anonymousCode: getValue("s_code"),
+    anonymousCode: getValue("s_code"),
     firstName: getValue("s_firstname"),
     lastName: getValue("s_lastname"),
   };
@@ -106,7 +108,7 @@ async function downloadExam(fileId) {
   log.info(JSON.stringify(student));
 
   // TODO: Chalmers: if missing, should we check s_pnr in canvasApi search for sis_user_id to get uid?
-  if (!student.userId)
+  if (!student.id)
     throw new Error(
       `Could not get User ID (s_uid) from TentaAPI (windream) for file id "${fileId}".`
     );

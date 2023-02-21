@@ -26,14 +26,14 @@ function throwIfStudentNotInUg({ fileId, fileName, studentPersNr }) {
 }
 
 /**
- * Students has missing entry for KTH ID, probably external
+ * Students has missing entry for User ID, probably external
  * and needs to be manually graded
  */
-function throwIfStudentMissingKTHID({ fileId, fileName, studentKthId }) {
-  if (!studentKthId) {
+function throwIfStudentMissingUserId({ fileId, fileName, studentUserId }) {
+  if (!studentUserId) {
     throw new ImportError({
       type: "missing_kthid",
-      message: `The scanned exam is missing KTH ID. Please contact IT-support (windream fileId: ${fileId}, ${fileName}) - Unhandled error`,
+      message: `The scanned exam is missing User ID. Please contact IT-support (windream fileId: ${fileId}, ${fileName}) - Unhandled error`,
     });
   }
 }
@@ -45,32 +45,35 @@ async function uploadOneExam({ fileId, courseId }) {
   );
 
   // Some business rules
-  throwIfStudentMissingKTHID({ fileId, fileName, studentKthId: student.userId });
+  
+  // TODO: Chalmers: we should rather check if student.id (CID) is missing and then try
+  //       to find it using the student.personNumber (search on sis_user_id s_pnr)
+
+  throwIfStudentMissingUserId({ fileId, fileName, studentUserId: student.id });
   throwIfStudentNotInUg({
     fileId,
     fileName,
     studentPersNr: student.personNumber,
   });
 
-  // TODO: Chalmers: we should rather check if student.userId (CID) is missing and then try
-  //       to find it using the student.personNumber (search on sis_user_id s_pnr)
 
   await updateStudentOfEntryInQueue({ fileId }, student);
 
   log.debug(
-    `Course ${courseId} / File ${fileId}, ${fileName} / User ${student.userId}. Uploading`
+    `Course ${courseId} / File ${fileId}, ${fileName} / User ${student.id}. Uploading`
   );
   const uploadExamStart = Date.now();
   const submissionTimestamp = await canvasApi.uploadExam(content, {
     courseId,
-    studentKthId: student.userId,
+    studentKthId: student.id,
+    studentAnonymousCode: student.anonymousCode, // Chalmers addition
     examDate,
     fileId,
   });
   log.debug("Time to upload exam: " + (Date.now() - uploadExamStart) + "ms");
 
   log.info(
-    `Course ${courseId} / File ${fileId}, ${fileName} / User ${student.userId}. Uploaded! Timestamp @ ${submissionTimestamp}`
+    `Course ${courseId} / File ${fileId}, ${fileName} / User ${student.id}. Uploaded! Timestamp @ ${submissionTimestamp}`
   );
 }
 
