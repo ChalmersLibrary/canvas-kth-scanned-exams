@@ -178,16 +178,20 @@ async function getAssignmentSubmissions(courseId, assignmentId) {
     .catch(canvasApiGenericErrorHandler);
 }
 
-async function createAssignment(courseId, ladokId, language = "en") {
-  const course = await getCourse(courseId);
-  console.log(course);
+async function createAssignment(courseId, ladokId, anonymize = false, language = "en") {
+  let examination;
 
-  // const examination = await getAktivitetstillfalle(ladokId); // We don't need Ladok for this, should be in Canvas course
-  const examination = {
-    examDate: course.start_at.substr(0, 10),
-  };
-
-  log.info(examination);
+  // Chalmers: If Ladok isn't configured, we can find information about examDate in course metadata instead.
+  if (process.env.LADOK_API_BASEURL && process.env.LADOK_API_BASEURL != '') {
+    examination = await getAktivitetstillfalle(ladokId);
+  }
+  else {
+    const course = await getCourse(courseId);
+    
+    examination = {
+      examDate: course.start_at.substr(0, 10),
+    };
+  }
 
   const { body: template } = await canvas
     .get<any>(TEMPLATES.assignment[language])
@@ -209,7 +213,9 @@ async function createAssignment(courseId, ladokId, language = "en") {
         //       grading_standard_id: 1,
         // TODO: Chalmers: Anonymous grading, depends on if there is index "s_code" from Aldoc,
         //       not sure how to find out about this, take first file matching Ladok UUID and check?
-        //       anonymize_students: true,
+        //       Default value is false
+        anonymize_students: anonymize,
+        anonymous_grading: anonymize,
       },
     })
     .then((r) => r.body as any)

@@ -95,6 +95,10 @@ async function createSpecialAssignment(req, res, next) {
       });
     }
 
+    // TODO: We need to check Aldoc exams with tentaApi.examListByLadokId(key) and go trough possible keys (+ suffixes), as in listAllExams.ts,
+    //       so we know if there are and "s_code" values, which means that we might need to create an Anonymous Assignment.
+    
+
     await canvasApi.createAssignment(courseId, ladokId);
     res.send({
       message: "done",
