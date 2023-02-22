@@ -161,6 +161,7 @@ type TSubmissionWithHistory = {
   }[];
   user: {
     sis_user_id: string;
+    login_id: string;
   };
 }
 
@@ -289,6 +290,7 @@ async function sendFile({ upload_url, upload_params }, content) {
 // TODO: Refactor this function and uploadExam to avoid requesting the endpoint
 //       "GET users/sis_user_id:${userId}" twice
 // TODO: Chalmers: Refactor because sis_user_id != userId (CID), its pnr
+// TODO: Is this function used at all???
 async function hasSubmission({ courseId, assignmentId, userId }) {
   try {
     const { body: user } = await canvas

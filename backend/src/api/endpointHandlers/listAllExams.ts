@@ -71,6 +71,7 @@ async function listStudentSubmissionsInCanvas(
     }[];
     user: {
       sis_user_id: string;
+      login_id: string;
     };
   }[]
 > {
@@ -96,6 +97,8 @@ async function listStudentSubmissionsInCanvas(
     courseId,
     assignment.id
   );
+
+  log.info(`listStudentSubmissionsInCanvas, courseId [${courseId}] ladokId [${ladokId}]`);
 
   return submissions;
 }
@@ -157,6 +160,30 @@ async function listAllExams(req, res, next) {
     studentsWithSubmissionsInCanvas = studentsWithSubmissionsInCanvas || [];
     examsInImportQueue = examsInImportQueue || [];
 
+    // Fix missing userIds in scanned exams
+    if (process.env.TENTA_API_QUERY_CANVAS_ON_MISSING_UID) {
+      for (const exam of allScannedExams) {
+        if (!exam.student.userId && exam.student.personNumber) {
+          log.warn("(Listing all exams) Exam is missing student.userId, querying Canvas on student.personNumber");
+    
+          const user = await canvasApi.userDetails(exam.student.personNumber);
+          log.info(user);
+
+          if (process.env.CANVAS_USER_ID_KEY == "login_id") {
+            if (process.env.CANVAS_USER_ID_KEY_CONTAINS_DOMAIN) {
+              exam.student.userId = user.login_id.split("@")[0];
+            } else {
+              exam.student.userId = user.login_id;
+            }
+          } else {
+            exam.student.userId = user.sis_user_id;
+          }
+
+          log.info(`(Listing all exams) student.userId mapped to [${exam.student.userId}]`);
+        }
+      }
+    }
+
     let summary: TErrorSummary = {
       total: 0,
       new: 0,
@@ -185,16 +212,28 @@ async function listAllExams(req, res, next) {
         prevSubmission.attachments?.forEach((attachment) => {
           // QUESTION: Should we warn if we have a duplicate upload?
           // NOTE: file_removed.pdf has the same name everywhere
-          attachmentsInCanvas[
-            `${submission.user?.sis_user_id}-${attachment.filename}`
-          ] = attachment;
+          if (process.env.CANVAS_USER_ID_KEY == "login_id") {
+            if (process.env.CANVAS_USER_ID_KEY_CONTAINS_DOMAIN) {
+              attachmentsInCanvas[
+                `${submission.user?.login_id.split("@")[0]}-${attachment.filename}`
+              ] = attachment;  
+            } else {
+              attachmentsInCanvas[
+                `${submission.user?.login_id}-${attachment.filename}`
+              ] = attachment;  
+            }
+          } else {
+            attachmentsInCanvas[
+              `${submission.user?.sis_user_id}-${attachment.filename}`
+            ] = attachment;
+          }
         });
       })
     );
 
     const listOfExamsToHandle = allScannedExams.map((exam) => {
       const foundInCanvas =
-        attachmentsInCanvas[`${exam.student?.id}-${exam.fileId}.pdf`];
+        attachmentsInCanvas[`${exam.student?.userId}-${exam.fileId}.pdf`];
 
       const foundInQueue = examsInImportQueue.find(
         (examInQueue) => examInQueue.fileId === exam.fileId
