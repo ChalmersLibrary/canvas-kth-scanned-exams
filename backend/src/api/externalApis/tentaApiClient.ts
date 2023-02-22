@@ -21,7 +21,7 @@ interface WindreamsScannedExam {
   createDate: string;
   fileId: number;
   student: {
-    id: string;
+    userId: string;
     personNumber: string;
     anonymousCode: string;
     firstName: string;
@@ -66,7 +66,7 @@ async function examListByLadokId(ladokId): Promise<WindreamsScannedExam[]> {
       createDate: result.createDate,
       fileId: result.fileId,
       student: {
-        id: getValue("s_uid"),
+        userId: getValue("s_uid"),
         personNumber: getValue("s_pnr"),
         anonymousCode: getValue("s_code"),
         firstName: getValue("s_firstname"),
@@ -85,7 +85,8 @@ async function examListByLadokId(ladokId): Promise<WindreamsScannedExam[]> {
 
 /** Download the exam with ID "fileId". Returns its content as a ReadableStream */
 async function downloadExam(fileId) {
-  log.info(`Downloading file ${fileId}...`);
+  log.debug(`Downloading file ${fileId}...`);
+
   const { body } = (await client(`windream/file/${fileId}/true`, {
     responseType: "json",
   })) as any;
@@ -97,7 +98,7 @@ async function downloadExam(fileId) {
   const examDateTime = getValue("e_date");
   const examDate = examDateTime.split("T")[0];
   const student = {
-    id: getValue("s_uid"),
+    userId: getValue("s_uid"),
     personNumber: getValue("s_pnr"),
     anonymousCode: getValue("s_code"),
     firstName: getValue("s_firstname"),
@@ -107,11 +108,13 @@ async function downloadExam(fileId) {
   // Chalmers: just a debug logging to understand the data being written
   log.info(JSON.stringify(student));
 
-  // TODO: Chalmers: if missing, should we check s_pnr in canvasApi search for sis_user_id to get uid?
-  if (!student.id)
+  // ProcessQueueEntry will take care of this
+  /*
+  if (!student.userId)
     throw new Error(
       `Could not get User ID (s_uid) from TentaAPI (windream) for file id "${fileId}".`
     );
+  */
 
   return {
     content: Readable.from(

@@ -40,40 +40,51 @@ function throwIfStudentMissingUserId({ fileId, fileName, studentUserId }) {
 
 async function uploadOneExam({ fileId, courseId }) {
   log.debug(`Course ${courseId} / File ${fileId}. Downloading`);
-  const { content, fileName, student, examDate } = await tentaApi.downloadExam(
-    fileId
-  );
+  
+  const { content, fileName, student, examDate } = await tentaApi.downloadExam(fileId);
+
+  // If downloaded fileId is missing "s_uid", we can try to ask Canvas with a query on "s_pnr"
+  if (!student.userId && student.personNumber && process.env.TENTA_API_QUERY_CANVAS_ON_MISSING_UID) {
+    log.warn("Student is missing is missing s_uid in TentaAPI, querying Canvas on s_pnr.");
+    
+    const user = await canvasApi.userDetails(student.personNumber);
+    log.info(user);
+
+    if (user.login_id) {
+      if (user.login_id.includes("@")) {
+        student.userId = user.login_id.substring(0, user.login_id.indexOf("@"));
+      }
+      else {
+        student.userId = user.login_id;
+      }
+    }
+  }
 
   // Some business rules
-  
-  // TODO: Chalmers: we should rather check if student.id (CID) is missing and then try
-  //       to find it using the student.personNumber (search on sis_user_id s_pnr)
-
-  throwIfStudentMissingUserId({ fileId, fileName, studentUserId: student.id });
+  throwIfStudentMissingUserId({ fileId, fileName, studentUserId: student.userId });
   throwIfStudentNotInUg({
     fileId,
     fileName,
     studentPersNr: student.personNumber,
   });
 
-
   await updateStudentOfEntryInQueue({ fileId }, student);
 
   log.debug(
-    `Course ${courseId} / File ${fileId}, ${fileName} / User ${student.id}. Uploading`
+    `Course ${courseId} / File ${fileId}, ${fileName} / User ${student.userId}. Uploading`
   );
   const uploadExamStart = Date.now();
   const submissionTimestamp = await canvasApi.uploadExam(content, {
     courseId,
-    studentKthId: student.id,
-    studentAnonymousCode: student.anonymousCode, // Chalmers addition
+    studentKthId: student.userId,
+    studentAnonymousCode: student.anonymousCode,
     examDate,
     fileId,
   });
   log.debug("Time to upload exam: " + (Date.now() - uploadExamStart) + "ms");
 
   log.info(
-    `Course ${courseId} / File ${fileId}, ${fileName} / User ${student.id}. Uploaded! Timestamp @ ${submissionTimestamp}`
+    `Course ${courseId} / File ${fileId}, ${fileName} / User ${student.userId}. Uploaded! Timestamp @ ${submissionTimestamp}`
   );
 }
 

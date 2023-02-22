@@ -92,11 +92,9 @@ async function getAktivitetstillfalleUIDs(courseId) {
     .toArray()
     .catch(canvasApiGenericErrorHandler);
 
-  log.info(sections);
-
   // Get the Ladok UUID from the Sections SIS ID, configurable regex
   const REGEX = process.env.CANVAS_SECTION_LADOKID_REGEX ? new RegExp(process.env.CANVAS_SECTION_LADOKID_REGEX) : /([0-9a-fA-F]{8}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{12})/;
-  log.info("Regex for Ladok UUID in Canvas section: " + REGEX);
+  log.debug("Regex for Ladok UUID in Canvas section: " + REGEX);
 
   const sisIds = sections
     .map((section) => section.sis_section_id?.match(REGEX)?.[1])
@@ -140,14 +138,12 @@ async function getExaminationLadokId(courseId) {
 
 async function getValidAssignment(courseId, ladokId) {
   const thisPath = `courses/${courseId}/assignments`;
-  log.info("GET " + thisPath);
 
   const assignments = await canvas
     .listItems<any>(thisPath)
     .toArray()
     .catch(canvasApiGenericErrorHandler);
 
-  log.info(`Assignments for courseId ${courseId}: ${assignments.length}`);
   log.info(`Assignments with integration_data.ladokId ${ladokId} : ${assignments.filter(x => x.integration_data?.ladokId == ladokId).length}`);
 
   // TODO: Filter more strictly?
@@ -292,6 +288,7 @@ async function sendFile({ upload_url, upload_params }, content) {
 
 // TODO: Refactor this function and uploadExam to avoid requesting the endpoint
 //       "GET users/sis_user_id:${userId}" twice
+// TODO: Chalmers: Refactor because sis_user_id != userId (CID), its pnr
 async function hasSubmission({ courseId, assignmentId, userId }) {
   try {
     const { body: user } = await canvas
@@ -318,7 +315,8 @@ async function uploadExam(
 ) {
   try {
     // Chalmers: In our Canvas, sis_user_id is "pnr", not the login id (what is mapped to studentKthId).
-    // TODO: Rename "studentKthId" with something more general like "studentId"?
+    // TODO: Find a better way to logic this, maybe with env canvas_user_key_field, defaults to sis_user_id... 
+    //       Rename "studentKthId" with "userId".
     let canvasApiUserQueryUrl;
     if (process.env.CANVAS_USER_KEY_IS_LOGIN_ID) {
       canvasApiUserQueryUrl = `users/sis_login_id:${studentKthId}@chalmers.se`;
@@ -337,7 +335,7 @@ async function uploadExam(
     // const ladokId = await getExaminationLadokId(courseId);
     const ladokId = await getAktivitetstillfalleUIDs(courseId);
     const assignment = await getValidAssignment(courseId, ladokId);
-    log.info("Found Assignment: " + JSON.stringify(assignment));
+    log.debug("Found Assignment: " + JSON.stringify(assignment));
 
     log.info( // Chalmers: originally: debug
       `Upload Exam: unlocking assignment ${assignment.id} in course ${courseId}`
@@ -510,6 +508,33 @@ async function enrollStudent(courseId, userId) {
     .catch(canvasApiGenericErrorHandler);
 }
 
+async function userDetails(personNumber) {
+  const { body: user } = await canvas
+  .get<any>(`users/sis_user_id:${personNumber}`)
+  .catch((err): never => {
+    log.error(err);
+    if (err.response?.statusCode === 404) {
+      throw new ImportError({
+        type: "missing_student",
+        message: "Student is missing in Canvas",
+        details: {
+          personNumber: personNumber,
+        },
+      });
+    } else {
+      throw new ImportError({
+        type: "import_error",
+        message: `Canvas returned an error when searching for user based on sis_user_id (s_pnr)`,
+        details: {
+          personNumber: personNumber,
+        },
+      });
+    }
+  });
+
+  return user;
+}
+
 export {
   getCourse,
   publishCourse,
@@ -525,4 +550,5 @@ export {
   uploadExam,
   getRoles,
   enrollStudent,
+  userDetails,
 };
