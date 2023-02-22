@@ -45,8 +45,8 @@ async function uploadOneExam({ fileId, courseId }) {
 
   // If downloaded fileId is missing "s_uid", we can try to ask Canvas with a query on "s_pnr"
   if (!student.userId && student.personNumber && process.env.TENTA_API_QUERY_CANVAS_ON_MISSING_UID) {
-    log.warn("Student is missing is missing s_uid in TentaAPI, querying Canvas on s_pnr.");
-    
+    log.warn("Student is missing s_uid in TentaAPI, querying Canvas on s_pnr.");
+
     const user = await canvasApi.userDetails(student.personNumber);
     log.info(user);
 
