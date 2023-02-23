@@ -8,11 +8,21 @@ import { CanvasApiError, EndpointError } from "../error";
  * has no valid ladok IDs
  */
 function throwIfNotExactlyOneLadokId(ladokIds, courseId) {
-  if (!Array.isArray(ladokIds) || ladokIds.length !== 1) {
+  if (!Array.isArray(ladokIds) || ladokIds.length === 0) {
     throw new EndpointError({
       type: "invalid_course",
       statusCode: 409, // Conflict - Indicates that the request could not be processed because of conflict in the current state of the resource
-      message: "Examrooms with more than one examination are not supported",
+      message: "Examrooms must have at least one section with Ladok UUID in SIS ID.",
+      details: {
+        courseId
+      },
+    });
+  }
+  else if (!Array.isArray(ladokIds) || ladokIds.length !== 1) {
+    throw new EndpointError({
+      type: "invalid_course",
+      statusCode: 409, // Conflict - Indicates that the request could not be processed because of conflict in the current state of the resource
+      message: "Examrooms with more than one examination are not supported.",
       details: {
         courseId,
         ladokIds,
@@ -97,7 +107,7 @@ async function createSpecialAssignment(req, res, next) {
 
     // TODO: We need to check Aldoc exams with tentaApi.examListByLadokId(key) and go trough possible keys (+ suffixes), as in listAllExams.ts,
     //       so we know if there are and "s_code" values, which means that we might need to create an Anonymous Assignment.
-    
+
 
     await canvasApi.createAssignment(courseId, ladokId);
     res.send({

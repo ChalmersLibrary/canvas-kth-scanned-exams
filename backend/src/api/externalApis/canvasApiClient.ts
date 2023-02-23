@@ -104,7 +104,12 @@ async function getAktivitetstillfalleUIDs(courseId) {
   // the same Ladok ID)
   const uniqueIds = Array.from(new Set(sisIds));
 
-  log.info(`Found Ladok UUID ${uniqueIds.toString()} for Canvas course "${courseId}"`);
+  if (!uniqueIds.length) {
+    log.error(`Found no Ladok UUID in section SIS data for Canvas course ${courseId}!`);
+  }
+  else {
+    log.info(`Found Ladok UUID ${uniqueIds.toString()} in section SIS data for Canvas course ${courseId}`);
+  }
 
   return uniqueIds as string[];
 }
@@ -187,7 +192,7 @@ async function createAssignment(courseId, ladokId, anonymize = false, language =
   }
   else {
     const course = await getCourse(courseId);
-    
+
     examination = {
       examDate: course.start_at.substr(0, 10),
     };
