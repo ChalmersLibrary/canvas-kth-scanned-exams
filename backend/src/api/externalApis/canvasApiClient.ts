@@ -104,14 +104,24 @@ async function getAktivitetstillfalleUIDs(courseId) {
   // the same Ladok ID)
   const uniqueIds = Array.from(new Set(sisIds));
 
+  // Because we might need to filter the list
+  let returnedIds = new Array();
+
   if (!uniqueIds.length) {
-    log.error(`Found no Ladok UUID in section SIS data for Canvas course ${courseId}!`);
+    log.error(`No Ladok UUID in section SIS data for Canvas course [${courseId}]!`);
   }
   else {
-    log.info(`Found Ladok UUID ${uniqueIds.toString()} in section SIS data for Canvas course ${courseId}`);
+    if (process.env.CANVAS_SECTION_LADOKID_MULTIPLE_FORCE_FIRST) {
+      returnedIds.push(uniqueIds[0]);
+      log.info(`Ladok UUID [${uniqueIds.toString()}] in section SIS data for Canvas course [${courseId}], returning [${returnedIds.toString()}] as configuration parameter CANVAS_SECTION_LADOKID_MULTIPLE_FORCE_FIRST is set to true.`);
+    }
+    else {
+      returnedIds = uniqueIds;
+      log.info(`Ladok UUID [${uniqueIds.toString()}] in section SIS data for Canvas course [${courseId}], returning [${returnedIds.toString()}].`);
+    }
   }
 
-  return uniqueIds as string[];
+  return returnedIds as string[];
 }
 
 // TODO: this function is kept only for backwards-compatibility reasons
