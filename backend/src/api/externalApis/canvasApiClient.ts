@@ -438,7 +438,8 @@ async function uploadExam(
         submission_type: "online_upload",
         user_id: user.id,
         file_ids: [uploadedFile.id],
-      }
+      },
+      comment: {},
     };
 
     // Add the "Anonymkod" as a text comment if it exists
