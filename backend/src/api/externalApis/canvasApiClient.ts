@@ -303,6 +303,8 @@ async function sendFile({ upload_url, upload_params }, content) {
 // TODO: Chalmers: Refactor because sis_user_id != userId (CID), its pnr
 // TODO: Is this function used at all???
 async function hasSubmission({ courseId, assignmentId, userId }) {
+  log.debug(`hasSubmission() called for user [${userId}]`);
+
   try {
     const { body: user } = await canvas
       .get<any>(`users/sis_user_id:${userId}`)
@@ -328,10 +330,9 @@ async function uploadExam(
 ) {
   try {
     // Chalmers: In our Canvas, sis_user_id is "pnr", not the login id (what is mapped to studentKthId).
-    // TODO: Find a better way to logic this, maybe with env canvas_user_key_field, defaults to sis_user_id... 
-    //       Rename "studentKthId" with "userId".
     let canvasApiUserQueryUrl;
-    if (process.env.CANVAS_USER_KEY_IS_LOGIN_ID) {
+
+    if (process.env.CANVAS_USER_ID_KEY == "login_id") {
       canvasApiUserQueryUrl = `users/sis_login_id:${studentKthId}@chalmers.se`;
     }
     else {
@@ -500,6 +501,8 @@ async function getAssignmentSubmissionForStudent({
   assignmentId,
   userId,
 }) {
+  log.debug(`getAssignmentSubmissionForStudent() called for user [${userId}]`);
+
   return canvas
     .get<{ submission_history: { workflow_state: string }[] }>(
       `courses/${courseId}/assignments/${assignmentId}/submissions/${userId}`,
@@ -521,6 +524,7 @@ async function enrollStudent(courseId, userId) {
     .catch(canvasApiGenericErrorHandler);
 }
 
+// Get user details based on "personnummer" (Chalmers)
 async function userDetails(personNumber) {
   const { body: user } = await canvas
   .get<any>(`users/sis_user_id:${personNumber}`)
