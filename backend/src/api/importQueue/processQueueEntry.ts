@@ -57,6 +57,8 @@ async function uploadOneExam({ fileId, courseId }) {
       else {
         student.userId = user.login_id;
       }
+
+      log.debug(`Student userId set to [${student.userId}]`);
     }
   }
 
