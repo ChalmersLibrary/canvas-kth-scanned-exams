@@ -540,24 +540,30 @@ async function userDetails(personNumber) {
   const { body: user } = await canvas
   .get<any>(`users/sis_user_id:${personNumber}`)
   .catch((err): never => {
-    log.error(err);
     if (err.response?.statusCode === 404) {
+      log.error("Student not found in Canvas (probably GU, we can't search on sis_user_id:<pnr>! Figure out how to handle this.");
+
+      /*
       throw new ImportError({
         type: "missing_student",
         message: "Student is missing in Canvas",
         details: {
           personNumber: personNumber,
         },
-      });
+      });*/
     } else {
+
+      /*
       throw new ImportError({
         type: "import_error",
         message: `Canvas returned an error when searching for user based on sis_user_id (s_pnr)`,
         details: {
           personNumber: personNumber,
         },
-      });
+      });*/
     }
+
+    return {};
   });
 
   return user;
