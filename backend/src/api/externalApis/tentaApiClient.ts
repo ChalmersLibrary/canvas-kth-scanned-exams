@@ -76,15 +76,21 @@ async function examIsAnonymous(ladokId) {
       const getValue = (index) => result.documentIndiceses.find((di) => di.index === index)?.value;
       exam_s_code_list.push(getValue("s_code").length ? true : false);
     }
-    if (Array.from(new Set(exam_s_code_list)).length > 1) {
+
+    const unique_s_code_list = Array.from(new Set(exam_s_code_list));
+
+    if (unique_s_code_list.length > 1) {
       result.error = true;
       result.error_text = `There are both existing and non-existing 's_code' exams for Ladok ID ${ladokId}`;
 
       log.error(result);
     }
-    else {
+    else if (unique_s_code_list.length == 1 && unique_s_code_list[0] == true) {
       result.anonymous = true;
-    }  
+    }
+    else {
+      // anonymous default is false
+    }
   }
 
   log.info(result);
