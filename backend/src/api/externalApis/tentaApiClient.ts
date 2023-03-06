@@ -29,6 +29,68 @@ interface WindreamsScannedExam {
   };
 }
 
+/**
+ * Helper function to find out if there are "s_code" properties for all exams,
+ * then the assignment created should be anonymous.
+ * 
+ * TODO: Chalmers: This is where it gets messy with the "_CTH" suffix or "<GUID>_<GUID>",
+ * we need to get the correct Ladok ID in Aldoc from canvasApi (sections) from the start...
+ */
+async function examIsAnonymous(ladokId) {
+  log.debug(`Searching exams for Ladok ID ${ladokId} to find out if s_code is present, then it's anonymous.`);
+
+  // Should probably throw instead of error in result object, but for now...
+  let result = {
+    error: false,
+    error_text: '',
+    anonymous: false,
+  };
+
+  let exam_s_code_list = [];
+
+  const { body } = (await client("windream/search/documents/false", {
+    method: "POST",
+    json: {
+      searchIndiceses: [
+        {
+          index: "e_ladokid",
+          value: ladokId,
+          useWildcard: false,
+        },
+      ],
+      includeDocumentIndicesesInResponse: true,
+      includeSystemIndicesesInResponse: false,
+      useDatesInSearch: false,
+    },
+    responseType: "json",
+  }).catch(tentaApiGenericErrorHandler)) as any;
+
+  if (!body.documentSearchResults) {
+    result.error = true;
+    result.error_text = `No exams found for Ladok ID ${ladokId}`;
+
+    log.error(result);
+  }
+  else {
+    for (const result of body.documentSearchResults) {
+      const getValue = (index) => result.documentIndiceses.find((di) => di.index === index)?.value;
+      exam_s_code_list.push(getValue("s_code").length ? true : false);
+    }
+    if (Array.from(new Set(exam_s_code_list)).length > 1) {
+      result.error = true;
+      result.error_text = `There are both existing and non-existing 's_code' exams for Ladok ID ${ladokId}`;
+
+      log.error(result);
+    }
+    else {
+      result.anonymous = true;
+    }  
+  }
+
+  log.info(result);
+  return result;
+}
+
 async function examListByLadokId(ladokId): Promise<WindreamsScannedExam[]> {
   const outp = <WindreamsScannedExam[]>[];
 
@@ -126,4 +188,4 @@ async function downloadExam(fileId) {
   };
 }
 
-export { examListByLadokId, downloadExam, getVersion };
+export { examIsAnonymous, examListByLadokId, downloadExam, getVersion };

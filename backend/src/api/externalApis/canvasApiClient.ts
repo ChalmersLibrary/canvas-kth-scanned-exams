@@ -159,7 +159,7 @@ async function getValidAssignment(courseId, ladokId) {
     .toArray()
     .catch(canvasApiGenericErrorHandler);
 
-  log.info(`Assignments with integration_data.ladokId ${ladokId} : ${assignments.filter(x => x.integration_data?.ladokId == ladokId).length}`);
+  log.debug(`Assignments with integration_data.ladokId ${ladokId} : ${assignments.filter(x => x.integration_data?.ladokId == ladokId).length}`);
 
   // TODO: Filter more strictly?
   // Chalmers: Changed === to ==, don't know why it didn't work?!? The types where not the same... 
@@ -196,6 +196,8 @@ async function getAssignmentSubmissions(courseId, assignmentId) {
 async function createAssignment(courseId, ladokId, anonymize = false, language = "en") {
   let examination;
 
+  log.info(`Create Assignment: courseId [${courseId}] ladokId [${ladokId}] anonymous [${anonymize}] language [${language}]`);
+
   // Chalmers: If Ladok isn't configured, we can find information about examDate in course metadata instead.
   if (process.env.LADOK_API_BASEURL && process.env.LADOK_API_BASEURL != '') {
     examination = await getAktivitetstillfalle(ladokId);
@@ -203,6 +205,7 @@ async function createAssignment(courseId, ladokId, anonymize = false, language =
   else {
     const course = await getCourse(courseId);
 
+    // TODO: Chalmers: Check that this date is really correct?
     examination = {
       examDate: course.start_at.substr(0, 10),
     };
@@ -224,13 +227,9 @@ async function createAssignment(courseId, ladokId, anonymize = false, language =
         published: false,
         grading_type: "letter_grade",
         notify_of_update: false,
-        // TODO: take the grading standard from TentaAPI
-        //       grading_standard_id: 1,
-        // TODO: Chalmers: Anonymous grading, depends on if there is index "s_code" from Aldoc,
-        //       not sure how to find out about this, take first file matching Ladok UUID and check?
-        //       Default value is false
-        anonymize_students: anonymize,
         anonymous_grading: anonymize,
+        // TODO: take the grading standard from TentaAPI
+        //       grading_standard_id: 1,      
       },
     })
     .then((r) => r.body as any)
@@ -450,7 +449,7 @@ async function uploadExam(
       };
     }
 
-    log.info(submissionObject);
+    log.debug(submissionObject);
 
     await canvas
       .request(

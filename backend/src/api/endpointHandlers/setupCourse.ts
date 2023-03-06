@@ -1,6 +1,7 @@
 /** Endpoints to setup a Canvas course */
 
 import * as canvasApi from "../externalApis/canvasApiClient";
+import * as tentaApi from "../externalApis/tentaApiClient";
 import { CanvasApiError, EndpointError } from "../error";
 
 /**
@@ -105,11 +106,15 @@ async function createSpecialAssignment(req, res, next) {
       });
     }
 
-    // TODO: We need to check Aldoc exams with tentaApi.examListByLadokId(key) and go trough possible keys (+ suffixes), as in listAllExams.ts,
-    //       so we know if there are and "s_code" values, which means that we might need to create an Anonymous Assignment.
+    // If the exams are all populated with "s_code" then we need to create an Anonymous Assignment
+    const examAnonymousResult = await tentaApi.examIsAnonymous(ladokId + "_CTH"); // TODO: fix this suffix thing
 
+    /* if (examAnonymousResult.error) {
+      log.error(examAnonymousResult.error_text);
+    } */
 
-    await canvasApi.createAssignment(courseId, ladokId);
+    await canvasApi.createAssignment(courseId, ladokId, examAnonymousResult.anonymous);
+
     res.send({
       message: "done",
     });
