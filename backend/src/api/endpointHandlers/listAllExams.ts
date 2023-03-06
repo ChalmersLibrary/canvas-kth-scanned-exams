@@ -165,21 +165,30 @@ async function listAllExams(req, res, next) {
       for (const exam of allScannedExams) {
         if (!exam.student.userId && exam.student.personNumber) {
           log.warn("(Listing all exams) Exam is missing student.userId, querying Canvas on student.personNumber");
-    
+          log.debug(exam.student);
+
           const user = await canvasApi.userDetails(exam.student.personNumber);
           log.info(user);
 
           if (process.env.CANVAS_USER_ID_KEY == "login_id") {
-            if (process.env.CANVAS_USER_ID_KEY_CONTAINS_DOMAIN) {
-              exam.student.userId = user.login_id.split("@")[0];
+            if (user?.login_id) {
+              if (process.env.CANVAS_USER_ID_KEY_CONTAINS_DOMAIN) {
+                exam.student.userId = user.login_id.split("@")[0];
+              } else {
+                exam.student.userId = user.login_id;
+              }
+              log.info(`(Listing all exams) exam.student.userId mapped to [${exam.student.userId}]`);
             } else {
-              exam.student.userId = user.login_id;
+              log.error("(Listing all exams) No 'login_id' in returned user object.");
             }
           } else {
-            exam.student.userId = user.sis_user_id;
+            if (user?.sis_user_id) {
+              exam.student.userId = user.sis_user_id;
+              log.info(`(Listing all exams) exam.student.userId mapped to [${exam.student.userId}]`);
+            } else {
+              log.error("(Listing all exams) No 'sis_user_id' in returned user object.");
+            }
           }
-
-          log.info(`(Listing all exams) student.userId mapped to [${exam.student.userId}]`);
         }
       }
     }
