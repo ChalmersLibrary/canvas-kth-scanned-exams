@@ -106,14 +106,10 @@ async function createSpecialAssignment(req, res, next) {
       });
     }
 
-    // If the exams are all populated with "s_code" then we need to create an Anonymous Assignment
-    const examAnonymousResult = await tentaApi.examIsAnonymous(ladokId + "_CTH"); // TODO: fix this suffix thing
+    // If exams are all populated with "s_code" then we need to create an anonymous grading Assignment
+    const isAnonymous = await tentaApi.examIsAnonymous(ladokId + "_CTH"); // TODO: fix this suffix thing
 
-    /* if (examAnonymousResult.error) {
-      log.error(examAnonymousResult.error_text);
-    } */
-
-    await canvasApi.createAssignment(courseId, ladokId, examAnonymousResult.anonymous);
+    await canvasApi.createAssignment(courseId, ladokId, isAnonymous); 
 
     res.send({
       message: "done",

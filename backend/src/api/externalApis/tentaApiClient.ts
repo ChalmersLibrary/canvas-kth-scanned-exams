@@ -33,16 +33,12 @@ interface WindreamsScannedExam {
  * Helper function to find out if there are "s_code" properties for all exams,
  * then the assignment created should be anonymous.
  * 
- * TODO: Chalmers: This is where it gets messy with the "_CTH" suffix or "<GUID>_<GUID>",
- * we need to get the correct Ladok ID in Aldoc from canvasApi (sections) from the start...
+ * TODO: change info to debug
  */
 async function examIsAnonymous(ladokId) {
-  log.debug(`Searching exams for Ladok ID ${ladokId} to find out if s_code is present, then it's anonymous.`);
+  log.info(`Searching Ladok ID ${ladokId} exams for anonymous "s_code".`);
 
-  // Should probably throw instead of error in result object, but for now...
   let result = {
-    error: false,
-    error_text: '',
     anonymous: false,
   };
 
@@ -66,10 +62,7 @@ async function examIsAnonymous(ladokId) {
   }).catch(tentaApiGenericErrorHandler)) as any;
 
   if (!body.documentSearchResults) {
-    result.error = true;
-    result.error_text = `No exams found for Ladok ID ${ladokId}`;
-
-    log.error(result);
+    log.error(`No exams found for Ladok ID ${ladokId}`);
   }
   else {
     for (const result of body.documentSearchResults) {
@@ -77,24 +70,22 @@ async function examIsAnonymous(ladokId) {
       exam_s_code_list.push(getValue("s_code").length ? true : false);
     }
 
+    // Unique list should be only one entry, with "true" or "false"
     const unique_s_code_list = Array.from(new Set(exam_s_code_list));
 
-    if (unique_s_code_list.length > 1) {
-      result.error = true;
-      result.error_text = `There are both existing and non-existing 's_code' exams for Ladok ID ${ladokId}`;
-
-      log.error(result);
-    }
-    else if (unique_s_code_list.length == 1 && unique_s_code_list[0] == true) {
+    if (unique_s_code_list.length == 1 && unique_s_code_list[0]) {
       result.anonymous = true;
+      log.info(`Exam for Ladok ID ${ladokId} is anonymous.`);
+    }
+    else if (unique_s_code_list.length == 1 && !unique_s_code_list[0]) {
+      log.info(`Exam for Ladok ID ${ladokId} is not anonymous.`);
     }
     else {
-      // anonymous default is false
+      log.error(`There are exams both with and without 's_code' for Ladok ID ${ladokId}, all needs to be present to be anonymous.`);
     }
   }
 
-  log.info(result);
-  return result;
+  return result.anonymous;
 }
 
 async function examListByLadokId(ladokId): Promise<WindreamsScannedExam[]> {
