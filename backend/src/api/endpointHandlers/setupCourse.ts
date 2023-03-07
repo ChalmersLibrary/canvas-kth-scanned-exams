@@ -38,7 +38,6 @@ async function getSetupStatus(req, res, next) {
     const courseId = req.params.id;
 
     const ladokIds = await canvasApi.getAktivitetstillfalleUIDs(courseId);
-    // TODO: Chalmers can have two different, if it's a joint exam room with CTH and GU...
     throwIfNotExactlyOneLadokId(ladokIds, courseId);
     const ladokId = ladokIds[0];
 
