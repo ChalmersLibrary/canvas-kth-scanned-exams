@@ -85,10 +85,13 @@ async function publishCourse(courseId) {
     .catch(canvasApiGenericErrorHandler);
 }
 
-/** Get the Ladok UID of the examination linked with a canvas course */
+/**
+ * Get the correct Ladok Aktivitetstillfälle UUID of the examination, linked with a canvas course.
+ * This information is (partly) in the Section SIS ID that represents certain criteria.
+ */
 async function getAktivitetstillfalleUIDs(courseId) {
   const sections = await canvas
-    .listItems<any>(`courses/${courseId}/sections`)
+    .listItems<any>(`courses/${courseId}/sections`, { include: ["students"] } )
     .toArray()
     .catch(canvasApiGenericErrorHandler);
 
@@ -98,14 +101,17 @@ async function getAktivitetstillfalleUIDs(courseId) {
 
   const sisIds = sections
     .map((section) => section.sis_section_id?.match(REGEX)?.[1])
-    .filter((sisId) => sisId /* Filter out null and undefined */);
+    .filter((s) => s.students?.length? /* Only sections with students */ )
+    .filter((sisId) => sisId /* Filter out null and undefined */ );
 
-  // Deduplicate IDs (there are usually one "funka" and one "non-funka" with
-  // the same Ladok ID)
+  // Deduplicate IDs
   const uniqueIds = Array.from(new Set(sisIds));
 
   // Because we might need to filter the list
   let returnedIds = new Array();
+
+  // TODO: rewrite this whole logic, but the correct Aldoc "e_ladokid" should be returned from this... I think.
+  // process.env.CANVAS_SECTION_LADOKID_ADD_SUFFIX
 
   if (!uniqueIds.length) {
     log.error(`No Ladok UUID in section SIS data for Canvas course [${courseId}]!`);
@@ -117,38 +123,11 @@ async function getAktivitetstillfalleUIDs(courseId) {
     }
     else {
       returnedIds = uniqueIds;
-      log.info(`Ladok UUID [${uniqueIds.toString()}] in section SIS data for Canvas course [${courseId}], returning [${returnedIds.toString()}].`);
+      log.info(`Ladok UUID [${uniqueIds.toString()}] in section SIS data for Canvas course [${courseId}], returning [${returnedIds.join("_")}].`);
     }
   }
 
   return returnedIds as string[];
-}
-
-// TODO: this function is kept only for backwards-compatibility reasons
-async function getExaminationLadokId(courseId) {
-  const sections = await canvas
-    .listItems<any>(`courses/${courseId}/sections`)
-    .toArray()
-    .catch(canvasApiGenericErrorHandler);
-
-  // For SIS IDs with format "AKT.<ladok id>.<suffix>", take the "<ladok id>"
-  const REGEX = /^AKT\.([\w-]+)/;
-  const sisIds = sections
-    .map((section) => section.sis_section_id?.match(REGEX)?.[1])
-    .filter((sisId) => sisId /* Filter out null and undefined */);
-
-  // Deduplicate IDs (there are usually one "funka" and one "non-funka" with
-  // the same Ladok ID)
-  const uniqueIds = Array.from(new Set(sisIds));
-
-  // Right now we are not supporting rooms with more than one examination
-  if (uniqueIds.length !== 1) {
-    throw new Error(
-      `Course ${courseId} not supported: it is connected to ${uniqueIds.length} different Ladok Ids`
-    );
-  } else {
-    return uniqueIds[0] as string;
-  }
 }
 
 async function getValidAssignment(courseId, ladokId) {
