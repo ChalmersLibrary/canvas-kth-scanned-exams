@@ -342,8 +342,6 @@ async function uploadExam(
     const ladokId = await getAktivitetstillfalleUUIDsFromSections(courseId);
     const assignment = await getValidAssignment(courseId, ladokId);
 
-    log.debug("Found Assignment: " + JSON.stringify(assignment));
-
     log.debug(
       `Upload Exam: unlocking assignment ${assignment.id} in course ${courseId}`
     );
@@ -440,8 +438,6 @@ async function uploadExam(
         text_comment: studentAnonymousCode,
       };
     }
-
-    log.info(submissionObject);
 
     await canvas
       .request(
@@ -584,6 +580,8 @@ async function getInternalCanvasUserFromPersonNumber(courseId: number, studentPe
     log.error(`No match found for [${studentPersonNumber}] in Canvas course id [${courseId}].`)
   }
   else if (users.length > 1) {
+    log.error(`Multiple matches for [${studentPersonNumber}] in Canvas course id [${courseId}], something is wrong.`);
+
     throw new ImportError({
       type: "multiple_students",
       message: "More than one student in examroom matches personnummer.",
@@ -592,10 +590,54 @@ async function getInternalCanvasUserFromPersonNumber(courseId: number, studentPe
         courseId: courseId,
       },
     });
-    // log.error(`More than one match found for [${studentPersonNumber}] in Canvas course id [${courseId}], something is wrong.`);
   }
   else {
     user = users[0];
+  }
+
+  return user;
+}
+
+/**
+ * DEPRECATED (Canvas API): Find enrolled student using student list and matching "sis_user_id".
+ * 
+ * @param courseId Canvas course id
+ * @param studentPersonNumber Person Number (personnummer)
+ * @returns 
+ */
+async function getInternalCanvasUserWithDeprecatedStudentList(courseId: number, studentPersonNumber: string) {
+  let user: TCanvasUser;
+
+  // TODO: If we're using this, then find a way to cache the results as we otherwise will have a full API request for each student we need to find.
+ 
+  // In order to handle large user id in response, we parse the raw response with json-bigint
+  const { rawBody: usersBuffer } = await canvas.get<any>(
+    `courses/${courseId}/students`, 
+  )
+  .catch(canvasApiGenericErrorHandler);
+  
+  let rawUsers = usersBuffer.toString();
+  const users: Array<TCanvasUser> = JsonBig.parse(rawUsers);
+
+  if (users.length == 0) {
+    log.error(`No users in Canvas student list, course id [${courseId}]`)
+  }
+  else {
+    if (users.filter((s) => s.sis_user_id == studentPersonNumber).length > 1) {
+      log.error(`More than one user matches [${studentPersonNumber}] in Canvas student list for course id [${courseId}]`);
+
+      throw new ImportError({
+        type: "multiple_students",
+        message: "More than one student in examroom matches personnummer.",
+        details: {
+          studentPersonNumber: studentPersonNumber,
+          courseId: courseId,
+        },
+      });
+    }
+    else {
+      user = users.find((s) => s.sis_user_id == studentPersonNumber);
+    }
   }
 
   return user;
@@ -619,4 +661,5 @@ export {
   enrollStudent,
   getInternalCanvasUserIdFromSisLoginId,
   getInternalCanvasUserFromPersonNumber,
+  getInternalCanvasUserWithDeprecatedStudentList,
 };
