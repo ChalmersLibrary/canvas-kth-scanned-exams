@@ -44,16 +44,24 @@ async function uploadOneExam({ fileId, courseId }) {
   const { content, fileName, student, examDate } = await tentaApi.downloadExam(fileId);
 
   // Always lookup student in Canvas based on "Personnummer"
-  let canvasUser = await canvasApi.getInternalCanvasUserFromPersonNumber(courseId, student.personNumber);
+  log.debug("Lookup student on " + student.personNumber);
+  let canvasUser = await canvasApi.getInternalCanvasUserFromSearch(courseId, student.personNumber);
 
-  // TODO: This API in Canvas is DEPRECATED
+  // Personnummer could have changed, try the login_id/userId (Chalmers only)
   if (!canvasUser) {
+    log.debug("Lookup student on " + student.userId);
+    canvasUser = await canvasApi.getInternalCanvasUserFromSearch(courseId, student.userId + (!student.userId?.includes("@") ? "@chalmers.se" : ""));
+  }
+
+  // TODO: This API in Canvas is DEPRECATED but it's where GU students are
+  if (!canvasUser) {
+    log.debug("Lookup student in deprecated students API on " + student.personNumber);
     canvasUser = await canvasApi.getInternalCanvasUserWithDeprecatedStudentList(courseId, student.personNumber);
   }
 
   if (canvasUser) {
     if (canvasUser.login_id.split("@")[0] != student.userId) {
-      log.info(`Student id from Aldoc: [${student.userId}] Student id in Canvas: [${canvasUser.login_id.split("@")[0]}]`);
+      log.info(`Student id from Aldoc: [${student.userId}] is translated to student id in Canvas: [${canvasUser.login_id.split("@")[0]}]`);
       student.userId = canvasUser.login_id.split("@")[0];
     }
 

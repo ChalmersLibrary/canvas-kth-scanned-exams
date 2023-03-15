@@ -525,27 +525,6 @@ async function enrollStudent(courseId, userId) {
     .catch(canvasApiGenericErrorHandler);
 }
 
-/**
- * Returns the internal Canvas User Id for student based on data in Users, searching "sis_login_id".
- * 
- * @param studentUserId Student userid (login_id)
- */
-async function getInternalCanvasUserIdFromSisLoginId(studentUserId: string) {
-  const { body: user } = await canvas
-  .get<any>(`users/sis_login_id:${studentUserId}`)
-  .catch((err): any => {
-    if (err.response?.statusCode === 404) {
-      log.error(`Student [${studentUserId}] not found in Canvas!`);
-    }
-    else {
-      log.error(err);
-    }
-  });
-
-  return user?.id.toString();
-}
-
-
 interface TCanvasUser {
   id: string;
   name: string;
@@ -556,19 +535,20 @@ interface TCanvasUser {
 };
 
 /**
- * Returns the Canvas Student in a given course based on search (only in course) for PersonNumber.
+ * Returns the Canvas Student in a given course based on search (only in course) for a query.
+ * This could be personnummer, login_id etc.
  * 
  * @param courseId Canvas course id
- * @param studentPersonNumber Person Number (personnummer)
+ * @param query Search terms
  */
-async function getInternalCanvasUserFromPersonNumber(courseId: number, studentPersonNumber: string) {
+async function getInternalCanvasUserFromSearch(courseId: number, query: string) {
   let user: TCanvasUser;
 
     // In order to handle large user id in response, we parse the raw response with json-bigint
   const { rawBody: usersBuffer } = await canvas.get<any>(`courses/${courseId}/search_users`, {
       "enrollment_type[]": "student",
       "include[]": "uuid",
-      "search_term": studentPersonNumber
+      "search_term": query
     },
   )
   .catch(canvasApiGenericErrorHandler);
@@ -577,16 +557,16 @@ async function getInternalCanvasUserFromPersonNumber(courseId: number, studentPe
   const users = JsonBig.parse(rawUsers);
 
   if (users.length == 0) {
-    log.error(`No match found for [${studentPersonNumber}] in Canvas course id [${courseId}].`)
+    log.error(`No match found for [${query}] in Canvas course id [${courseId}].`)
   }
   else if (users.length > 1) {
-    log.error(`Multiple matches for [${studentPersonNumber}] in Canvas course id [${courseId}], something is wrong.`);
+    log.error(`Multiple matches for [${query}] in Canvas course id [${courseId}].`);
 
     throw new ImportError({
       type: "multiple_students",
-      message: "More than one student in examroom matches personnummer.",
+      message: "More than one student in examroom matches search query.",
       details: {
-        studentPersonNumber: studentPersonNumber,
+        studentPersonNumber: query,
         courseId: courseId,
       },
     });
@@ -659,7 +639,6 @@ export {
   uploadExam,
   getRoles,
   enrollStudent,
-  getInternalCanvasUserIdFromSisLoginId,
-  getInternalCanvasUserFromPersonNumber,
+  getInternalCanvasUserFromSearch,
   getInternalCanvasUserWithDeprecatedStudentList,
 };
