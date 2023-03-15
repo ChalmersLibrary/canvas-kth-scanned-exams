@@ -43,7 +43,10 @@ function assert(test: boolean | Function, msg: string): void {
 /* eslint max-classes-per-file: off */
 
 type TStudent = {
-  kthId: string;
+  canvasInternalId: string;
+  userId: string;
+  personNumber: string;
+  anonymousCode: string;
   firstName: string;
   lastName: string;
 };
@@ -82,7 +85,10 @@ class QueueEntry {
     this.fileCreateDate = fileCreateDate;
     this.courseId = courseId;
     this.student = {
-      kthId: student?.kthId,
+      canvasInternalId: student?.canvasInternalId,
+      userId: student?.userId,
+      personNumber: student?.personNumber,
+      anonymousCode: student?.anonymousCode,
       firstName: student?.firstName,
       lastName: student?.lastName,
     };
@@ -100,7 +106,10 @@ class QueueEntry {
       fileCreateDate: this.fileCreateDate,
       courseId: this.courseId,
       student: {
-        kthId: this.student?.kthId,
+        canvasInternalId: this.student?.canvasInternalId,
+        userId: this.student?.userId,
+        personNumber: this.student?.personNumber,
+        anonymousCode: this.student?.anonymousCode,
         firstName: this.student?.firstName,
         lastName: this.student?.lastName,
       },
@@ -345,7 +354,7 @@ async function getStatusFromQueue(courseId) {
 
 async function updateStudentOfEntryInQueue(
   entry,
-  { kthId, firstName, lastName }
+  { canvasInternalId, userId, personNumber, anonymousCode, firstName, lastName }
 ) {
   try {
     const collImportQueue = await getImportQueueCollection();
@@ -361,7 +370,10 @@ async function updateStudentOfEntryInQueue(
     const typedEntry = new QueueEntry(tmpOld as any);
 
     typedEntry.student = {
-      kthId,
+      canvasInternalId,
+      userId,
+      personNumber,
+      anonymousCode,
       firstName,
       lastName,
     };
