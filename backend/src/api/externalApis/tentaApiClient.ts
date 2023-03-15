@@ -165,16 +165,10 @@ async function downloadExam(fileId) {
     lastName: getValue("s_lastname"),
   };
 
-  // Chalmers: just a debug logging to understand the data being written
-  log.info(JSON.stringify(student));
-
-  // ProcessQueueEntry will take care of this
-  /*
   if (!student.userId)
     throw new Error(
       `Could not get User ID (s_uid) from TentaAPI (windream) for file id "${fileId}".`
     );
-  */
 
   return {
     content: Readable.from(
