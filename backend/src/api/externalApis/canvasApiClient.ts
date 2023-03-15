@@ -2,6 +2,7 @@ import CanvasApi from "@kth/canvas-api";
 import FormData from "formdata-node";
 import got from "got";
 import log from "skog";
+import JsonBig from "json-bigint";
 import { getAktivitetstillfalle } from "./ladokApiClient";
 import {
   EndpointError,
@@ -88,8 +89,10 @@ async function publishCourse(courseId) {
 /**
  * Get the correct Ladok Aktivitetstillfälle UUID of the examination, linked with a canvas course.
  * This information is (partly) in the Section SIS ID that represents certain criteria.
+ * 
+ * @param courseId Canvas course id
  */
-async function getAktivitetstillfalleUIDs(courseId) {
+async function getAktivitetstillfalleUUIDsFromSections(courseId: number) {
   const sections = await canvas
     .listItems<any>(`courses/${courseId}/sections`, { include: ["students"] } )
     .toArray()
@@ -101,33 +104,49 @@ async function getAktivitetstillfalleUIDs(courseId) {
 
   const sisIds = sections
     .map((section) => section.sis_section_id?.match(REGEX)?.[1])
-    .filter((s) => s.students?.length? /* Only sections with students */ )
-    .filter((sisId) => sisId /* Filter out null and undefined */ );
-
+    .filter((sisId) => sisId) /* Filter out null and undefined */
+    .filter((s) => s.students?.length); /* Only sections with students */
   // Deduplicate IDs
   const uniqueIds = Array.from(new Set(sisIds));
 
   // Because we might need to filter the list
   let returnedIds = new Array();
 
-  // TODO: rewrite this whole logic, but the correct Aldoc "e_ladokid" should be returned from this... I think.
-  // process.env.CANVAS_SECTION_LADOKID_ADD_SUFFIX
-
   if (!uniqueIds.length) {
     log.error(`No Ladok UUID in section SIS data for Canvas course [${courseId}]!`);
   }
   else {
-    if (process.env.CANVAS_SECTION_LADOKID_MULTIPLE_FORCE_FIRST) {
+    if (uniqueIds.length > 1 && process.env.CANVAS_SECTION_LADOKID_MULTIPLE_FORCE_FIRST) {
       returnedIds.push(uniqueIds[0]);
-      log.info(`Ladok UUID [${uniqueIds.toString()}] in section SIS data for Canvas course [${courseId}], returning [${returnedIds.toString()}] as configuration parameter CANVAS_SECTION_LADOKID_MULTIPLE_FORCE_FIRST is set to true.`);
+      log.info(`Ladok UUID [${uniqueIds.toString()}] in section SIS data for Canvas course [${courseId}], returning [${returnedIds.toString()}] as configuration parameter CANVAS_SECTION_LADOKID_MULTIPLE_FORCE_FIRST is set.`);
     }
     else {
       returnedIds = uniqueIds;
-      log.info(`Ladok UUID [${uniqueIds.toString()}] in section SIS data for Canvas course [${courseId}], returning [${returnedIds.join("_")}].`);
+      log.info(`Ladok UUID [${uniqueIds.toString()}] in section SIS data for Canvas course [${courseId}], returning [${returnedIds.join(",")}].`);
     }
   }
 
   return returnedIds as string[];
+}
+
+/** Get the Ladok UID of the examination linked with a canvas course */
+async function getAktivitetstillfalleUIDs(courseId) {
+  const sections = await canvas
+    .listItems<any>(`courses/${courseId}/sections`)
+    .toArray()
+    .catch(canvasApiGenericErrorHandler);
+
+  // For SIS IDs with format "AKT.<ladok id>.<suffix>", take the "<ladok id>"
+  const REGEX = /^AKT\.([\w-]+)/;
+  const sisIds = sections
+    .map((section) => section.sis_section_id?.match(REGEX)?.[1])
+    .filter((sisId) => sisId /* Filter out null and undefined */);
+
+  // Deduplicate IDs (there are usually one "funka" and one "non-funka" with
+  // the same Ladok ID)
+  const uniqueIds = Array.from(new Set(sisIds));
+
+  return uniqueIds as string[];
 }
 
 async function getValidAssignment(courseId, ladokId) {
@@ -312,34 +331,20 @@ async function hasSubmission({ courseId, assignmentId, userId }) {
   }
 }
 
+/**
+ * Uploads exam as submission to correct assignment in Canvas.
+ */
 async function uploadExam(
   content,
-  { courseId, studentKthId, studentAnonymousCode, examDate, fileId }
+  { courseId, studentCanvasInternalId, studentUserId, studentAnonymousCode, examDate, fileId }
 ) {
   try {
-    // Chalmers: In our Canvas, sis_user_id is "pnr", not the login id (what is mapped to studentKthId).
-    let canvasApiUserQueryUrl;
-
-    if (process.env.CANVAS_USER_ID_KEY == "login_id") {
-      canvasApiUserQueryUrl = `users/sis_login_id:${studentKthId}@chalmers.se`;
-    }
-    else {
-      canvasApiUserQueryUrl = `users/sis_user_id:${studentKthId}`;
-    }
-
-    log.info("Get user details: " + canvasApiUserQueryUrl);
-    
-    const { body: user } = await canvas
-      .get<any>(canvasApiUserQueryUrl)
-      .catch(canvasApiGenericErrorHandler);
-
-    // Chalmers: function says "kept for backwards compatibility"???
-    // const ladokId = await getExaminationLadokId(courseId);
-    const ladokId = await getAktivitetstillfalleUIDs(courseId);
+    const ladokId = await getAktivitetstillfalleUUIDsFromSections(courseId);
     const assignment = await getValidAssignment(courseId, ladokId);
+
     log.debug("Found Assignment: " + JSON.stringify(assignment));
 
-    log.info( // Chalmers: originally: debug
+    log.debug(
       `Upload Exam: unlocking assignment ${assignment.id} in course ${courseId}`
     );
 
@@ -347,7 +352,7 @@ async function uploadExam(
     // TODO: will return a 400 if the course is unpublished
     const { body: slot } = await canvas
       .request<any>(
-        `courses/${courseId}/assignments/${assignment.id}/submissions/${user.id}/files`,
+        `courses/${courseId}/assignments/${assignment.id}/submissions/${studentCanvasInternalId}/files`,
         "POST",
         {
           name: `${fileId}.pdf`,
@@ -361,7 +366,8 @@ async function uploadExam(
             type: "missing_student",
             message: "Student is missing in examroom",
             details: {
-              kthId: studentKthId,
+              canvasInternalId: studentCanvasInternalId,
+              userId: studentUserId,
             },
           });
         } else {
@@ -370,7 +376,8 @@ async function uploadExam(
             type: "import_error",
             message: `Canvas returned an error when importing this exam (windream fileId: ${fileId})`,
             details: {
-              kthId: studentKthId,
+              studentCanvasInternalId,
+              studentUserId,
               fileId,
             },
           });
@@ -380,10 +387,15 @@ async function uploadExam(
     log.debug(
       "Time to generate upload token: " + (Date.now() - reqTokenStart) + "ms"
     );
+    log.debug(slot);
 
     const uploadFileStart = Date.now();
-    const { body: uploadedFile } = await sendFile(slot, content);
 
+    // In order to handle large user id in response, we parse the raw response with json-bigint
+    const { rawBody: rawUploadedFileResponse } = await sendFile(slot, content);
+    let rawUploadedFile = rawUploadedFileResponse.toString();
+    const uploadedFile = JsonBig.parse(rawUploadedFile);
+    
     log.debug("Time to upload file: " + (Date.now() - uploadFileStart) + "ms");
 
     // TODO: move the following statement outside of this function
@@ -396,7 +408,8 @@ async function uploadExam(
     const { body: submission } = await getAssignmentSubmissionForStudent({
       courseId,
       assignmentId: assignment.id,
-      userId: user.id,
+      userId: studentUserId,
+      userCanvasInternalId: studentCanvasInternalId,
     });
 
     // There is always a submission to start with in the history with status "unsubmitted"
@@ -415,7 +428,7 @@ async function uploadExam(
       submission: {
         ...submissionProps,
         submission_type: "online_upload",
-        user_id: user.id,
+        user_id: studentCanvasInternalId,
         file_ids: [uploadedFile.id],
       },
       comment: {},
@@ -428,7 +441,7 @@ async function uploadExam(
       };
     }
 
-    log.debug(submissionObject);
+    log.info(submissionObject);
 
     await canvas
       .request(
@@ -441,15 +454,17 @@ async function uploadExam(
     return submitted_at;
   } catch (err) {
     if (err.type === "missing_student") {
-      log.warn(`User ${studentKthId} is missing in Canvas course ${courseId}`);
-    } else if (!studentKthId) {
+      log.warn(`User with internal id ${studentCanvasInternalId} is missing in Canvas course ${courseId}`);
+    }
+    else if (!studentCanvasInternalId) {
       log.warn(
-        `User is missing KTH ID, needs du be manually graded: Windream fileid ${fileId} / course ${courseId}`
+        `User is missing internal Canvas User Id, needs du be manually graded: Windream fileid ${fileId} / course ${courseId}`
       );
-    } else {
+    }
+    else {
       log.error(
         { err },
-        `Error when uploading exam: KTH ID ${studentKthId} / course ${courseId}`
+        `Error when uploading exam: User id ${studentUserId} internal id ${studentCanvasInternalId} / course ${courseId}`
       );
     }
     throw err;
@@ -489,12 +504,13 @@ async function getAssignmentSubmissionForStudent({
   courseId,
   assignmentId,
   userId,
+  userCanvasInternalId,
 }) {
-  log.debug(`getAssignmentSubmissionForStudent() called for user [${userId}]`);
+  log.debug(`getAssignmentSubmissionForStudent() called for user [${userId}] internal id [${userCanvasInternalId}]`);
 
   return canvas
     .get<{ submission_history: { workflow_state: string }[] }>(
-      `courses/${courseId}/assignments/${assignmentId}/submissions/${userId}`,
+      `courses/${courseId}/assignments/${assignmentId}/submissions/${userCanvasInternalId}`,
       { include: ["submission_history"] }
     )
     .catch(canvasApiGenericErrorHandler);
@@ -513,36 +529,77 @@ async function enrollStudent(courseId, userId) {
     .catch(canvasApiGenericErrorHandler);
 }
 
-// Get user details based on "personnummer" (Chalmers)
-async function userDetails(personNumber) {
+/**
+ * Returns the internal Canvas User Id for student based on data in Users, searching "sis_login_id".
+ * 
+ * @param studentUserId Student userid (login_id)
+ */
+async function getInternalCanvasUserIdFromSisLoginId(studentUserId: string) {
   const { body: user } = await canvas
-  .get<any>(`users/sis_user_id:${personNumber}`)
-  .catch((err): never => {
+  .get<any>(`users/sis_login_id:${studentUserId}`)
+  .catch((err): any => {
     if (err.response?.statusCode === 404) {
-      log.error("Student not found in Canvas (probably GU, we can't search on sis_user_id:<pnr>! Figure out how to handle this.");
-
-      /*
-      throw new ImportError({
-        type: "missing_student",
-        message: "Student is missing in Canvas",
-        details: {
-          personNumber: personNumber,
-        },
-      });*/
-    } else {
-
-      /*
-      throw new ImportError({
-        type: "import_error",
-        message: `Canvas returned an error when searching for user based on sis_user_id (s_pnr)`,
-        details: {
-          personNumber: personNumber,
-        },
-      });*/
+      log.error(`Student [${studentUserId}] not found in Canvas!`);
     }
-
-    return {};
+    else {
+      log.error(err);
+    }
   });
+
+  return user?.id.toString();
+}
+
+
+interface TCanvasUser {
+  id: string;
+  name: string;
+  sis_user_id: string;
+  root_account: string;
+  login_id: string;
+  uuid: string;
+};
+
+/**
+ * Returns the Canvas Student in a given course based on search (only in course) for PersonNumber.
+ * 
+ * @param courseId Canvas course id
+ * @param studentPersonNumber Person Number (personnummer)
+ */
+async function getInternalCanvasUserFromPersonNumber(courseId: number, studentPersonNumber: string) {
+  let user: TCanvasUser;
+
+    // In order to handle large user id in response, we parse the raw response with json-bigint
+  const { rawBody: usersBuffer } = await canvas.get<any>(`courses/${courseId}/search_users`, {
+      "enrollment_type[]": "student",
+      "include[]": "uuid",
+      "search_term": studentPersonNumber
+    },
+  )
+  .catch(canvasApiGenericErrorHandler);
+  
+  let rawUsers = usersBuffer.toString();
+  console.log(rawUsers);
+
+  const users = JsonBig.parse(rawUsers);
+  console.log(users);
+
+  if (users.length == 0) {
+    log.error(`No match found for [${studentPersonNumber}] in Canvas course id [${courseId}].`)
+  }
+  else if (users.length > 1) {
+    throw new ImportError({
+      type: "multiple_students",
+      message: "More than one student in examroom matches personnummer.",
+      details: {
+        studentPersonNumber: studentPersonNumber,
+        courseId: courseId,
+      },
+    });
+    // log.error(`More than one match found for [${studentPersonNumber}] in Canvas course id [${courseId}], something is wrong.`);
+  }
+  else {
+    user = users[0];
+  }
 
   return user;
 }
@@ -552,6 +609,7 @@ export {
   publishCourse,
   createHomepage,
   getAktivitetstillfalleUIDs,
+  getAktivitetstillfalleUUIDsFromSections,
   getValidAssignment,
   getAssignmentSubmissions,
   createAssignment,
@@ -562,5 +620,6 @@ export {
   uploadExam,
   getRoles,
   enrollStudent,
-  userDetails,
+  getInternalCanvasUserIdFromSisLoginId,
+  getInternalCanvasUserFromPersonNumber,
 };
