@@ -33,7 +33,7 @@ function throwIfStudentMissingUserId({ fileId, fileName, studentUserId }) {
   if (!studentUserId) {
     throw new ImportError({
       type: "missing_kthid",
-      message: `The scanned exam is missing User ID. Please contact IT-support (windream fileId: ${fileId}, ${fileName}) - Unhandled error`,
+      message: `The scanned exam is missing Canvas User Id. Please contact IT-support (windream fileId: ${fileId}, ${fileName}) - Unhandled error`,
     });
   }
 }
@@ -43,27 +43,26 @@ async function uploadOneExam({ fileId, courseId }) {
   
   const { content, fileName, student, examDate } = await tentaApi.downloadExam(fileId);
 
-  // If downloaded fileId is missing "s_uid", we can try to ask Canvas with a query on "s_pnr"
-  if (!student.userId && student.personNumber && process.env.TENTA_API_QUERY_CANVAS_ON_MISSING_UID) {
-    log.warn("Student is missing s_uid in TentaAPI, querying Canvas on s_pnr.");
+  // Always lookup student in Canvas based on "Personnummer"
+  const canvasUser = await canvasApi.getInternalCanvasUserFromPersonNumber(courseId, student.personNumber);
+  log.info(canvasUser);
 
-    const user = await canvasApi.userDetails(student.personNumber);
-    log.info(user);
-
-    if (user.login_id) {
-      if (user.login_id.includes("@")) {
-        student.userId = user.login_id.substring(0, user.login_id.indexOf("@"));
-      }
-      else {
-        student.userId = user.login_id;
-      }
-
-      log.debug(`Student userId set to [${student.userId}]`);
+  if (canvasUser) {
+    if (canvasUser.login_id.split("@")[0] != student.userId) {
+      log.info(`Student id from Aldoc: [${student.userId}] Student id in Canvas: [${canvasUser.login_id.split("@")[0]}]`);
+      student.userId = canvasUser.login_id.split("@")[0];
     }
+
+    student.canvasInternalId = canvasUser.id;
+  }
+  else {
+    log.error(`No record or too many records when searching for student in course room.`)
   }
 
+  log.info(`Student userId ${student.userId} internal id ${student.canvasInternalId} ${student.firstName} ${student.lastName}`);
+
   // Some business rules
-  throwIfStudentMissingUserId({ fileId, fileName, studentUserId: student.userId });
+  throwIfStudentMissingUserId({ fileId, fileName, studentUserId: student.canvasInternalId });
   throwIfStudentNotInUg({
     fileId,
     fileName,
@@ -73,12 +72,13 @@ async function uploadOneExam({ fileId, courseId }) {
   await updateStudentOfEntryInQueue({ fileId }, student);
 
   log.debug(
-    `Course ${courseId} / File ${fileId}, ${fileName} / User ${student.userId}. Uploading`
+    `Course ${courseId} / File ${fileId}, ${fileName} / User ${student.userId} id ${student.canvasInternalId}. Uploading`
   );
   const uploadExamStart = Date.now();
   const submissionTimestamp = await canvasApi.uploadExam(content, {
     courseId,
-    studentKthId: student.userId,
+    studentUserId: student.userId,
+    studentCanvasInternalId: student.canvasInternalId,
     studentAnonymousCode: student.anonymousCode,
     examDate,
     fileId,
