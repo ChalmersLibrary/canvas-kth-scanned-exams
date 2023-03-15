@@ -103,9 +103,9 @@ async function getAktivitetstillfalleUUIDsFromSections(courseId: number) {
   log.debug("Regex for Ladok UUID in Canvas section: " + REGEX);
 
   const sisIds = sections
+    .filter((s) => s.students?.length) /* Filter out sections with 0 enrollments */
     .map((section) => section.sis_section_id?.match(REGEX)?.[1])
     .filter((sisId) => sisId) /* Filter out null and undefined */
-    .filter((s) => s.students?.length); /* Only sections with students */
   // Deduplicate IDs
   const uniqueIds = Array.from(new Set(sisIds));
 
@@ -578,10 +578,7 @@ async function getInternalCanvasUserFromPersonNumber(courseId: number, studentPe
   .catch(canvasApiGenericErrorHandler);
   
   let rawUsers = usersBuffer.toString();
-  console.log(rawUsers);
-
   const users = JsonBig.parse(rawUsers);
-  console.log(users);
 
   if (users.length == 0) {
     log.error(`No match found for [${studentPersonNumber}] in Canvas course id [${courseId}].`)
