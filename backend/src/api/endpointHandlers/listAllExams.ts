@@ -32,26 +32,11 @@ function throwIfNotExactlyOneLadokId(ladokIds, courseId) {
  * (yet) in this application.
  */
 async function listScannedExams(courseId, ladokId) {
-  let searchKeys = [];
-  searchKeys.push(ladokId);
+  const allScannedExams = await tentaApi.examListByLadokId(ladokId);
 
-  if (process.env.TENTA_API_LADOKID_ADDITIONAL_SUFFIXES) {
-    for (const suffix of process.env.TENTA_API_LADOKID_ADDITIONAL_SUFFIXES.split(",")) {
-      searchKeys.push(ladokId + suffix);
-    }
-  }
-
-  let allScannedExams = [];
-  
-  for (const key of searchKeys) {
-    if (allScannedExams.length == 0) {
-      allScannedExams = await tentaApi.examListByLadokId(key);
-
-      log.info(
-        `Exams for course [${courseId}] ladokId [${key}]: ${allScannedExams.length}`
-      );
-    }
-  }
+  log.info(
+    `Exams for course [${courseId}] ladokId [${ladokId}]: ${allScannedExams.length}`
+  );
 
   return allScannedExams;
 }
@@ -144,7 +129,7 @@ async function listAllExams(req, res, next) {
     const courseId = req.params.id;
     // - Canvas is source of truth regarding if a submitted exam is truly imported
     // - the internal import queue keeps state of pending and last performed import
-    const ladokIds = await canvasApi.getAktivitetstillfalleUIDs(courseId);
+    const ladokIds = await canvasApi.getAktivitetstillfalleUUIDsFromSections(courseId);
     throwIfNotExactlyOneLadokId(ladokIds, courseId);
     const ladokId = ladokIds[0];
 
@@ -159,39 +144,6 @@ async function listAllExams(req, res, next) {
     allScannedExams = allScannedExams || [];
     studentsWithSubmissionsInCanvas = studentsWithSubmissionsInCanvas || [];
     examsInImportQueue = examsInImportQueue || [];
-
-    // Fix missing userIds in scanned exams
-    if (process.env.TENTA_API_QUERY_CANVAS_ON_MISSING_UID) {
-      for (const exam of allScannedExams) {
-        if (!exam.student.userId && exam.student.personNumber) {
-          log.warn("(Listing all exams) Exam is missing student.userId, querying Canvas on student.personNumber");
-          log.debug(exam.student);
-
-          const user = await canvasApi.userDetails(exam.student.personNumber);
-          log.info(user);
-
-          if (process.env.CANVAS_USER_ID_KEY == "login_id") {
-            if (user?.login_id) {
-              if (process.env.CANVAS_USER_ID_KEY_CONTAINS_DOMAIN) {
-                exam.student.userId = user.login_id.split("@")[0];
-              } else {
-                exam.student.userId = user.login_id;
-              }
-              log.info(`(Listing all exams) exam.student.userId mapped to [${exam.student.userId}]`);
-            } else {
-              log.error("(Listing all exams) No 'login_id' in returned user object.");
-            }
-          } else {
-            if (user?.sis_user_id) {
-              exam.student.userId = user.sis_user_id;
-              log.info(`(Listing all exams) exam.student.userId mapped to [${exam.student.userId}]`);
-            } else {
-              log.error("(Listing all exams) No 'sis_user_id' in returned user object.");
-            }
-          }
-        }
-      }
-    }
 
     let summary: TErrorSummary = {
       total: 0,
