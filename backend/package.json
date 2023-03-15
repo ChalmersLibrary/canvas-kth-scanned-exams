@@ -37,6 +37,7 @@
     "express-session": "^1.17.1",
     "formdata-node": "^2.5.0",
     "got": "^11.8.2",
+    "json-bigint": "^1.0.0",
     "mongodb": "^4.1.1",
     "openid-client": "^4.6.0",
     "pino": "^6.11.2",
