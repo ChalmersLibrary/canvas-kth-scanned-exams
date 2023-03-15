@@ -10,6 +10,7 @@ log.init.pino(
   },
   {
     timestamp: pino.stdTimeFunctions.isoTime,
+    level: process.env.NODE_ENV == 'development' ? 'debug' : 'info',
   }
 );
 
