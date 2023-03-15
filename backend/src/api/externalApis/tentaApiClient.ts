@@ -30,13 +30,13 @@ interface WindreamsScannedExam {
 }
 
 /**
- * Helper function to find out if there are "s_code" properties for all exams,
+ * Helper function to find out if there are "s_code" properties for all exams in Aldoc,
  * then the assignment created should be anonymous.
  * 
- * TODO: change info to debug
+ * @param ladokId Ladok Aktivitetstillfälle UUID
  */
 async function examIsAnonymous(ladokId) {
-  log.info(`Searching Ladok ID ${ladokId} exams for anonymous "s_code".`);
+  log.debug(`Searching Ladok ID ${ladokId} exams in Aldoc for "s_code" (anonymous code)...`);
 
   let result = {
     anonymous: false,
@@ -62,7 +62,7 @@ async function examIsAnonymous(ladokId) {
   }).catch(tentaApiGenericErrorHandler)) as any;
 
   if (!body.documentSearchResults) {
-    log.error(`No exams found for Ladok ID ${ladokId}`);
+    log.error(`No exams found for Ladok ID ${ladokId}, searching for "s_code"!`);
   }
   else {
     for (const result of body.documentSearchResults) {
@@ -75,13 +75,13 @@ async function examIsAnonymous(ladokId) {
 
     if (unique_s_code_list.length == 1 && unique_s_code_list[0]) {
       result.anonymous = true;
-      log.info(`Exam for Ladok ID ${ladokId} is anonymous.`);
+      log.debug(`Exam for Ladok ID ${ladokId} is anonymous.`);
     }
     else if (unique_s_code_list.length == 1 && !unique_s_code_list[0]) {
-      log.info(`Exam for Ladok ID ${ladokId} is not anonymous.`);
+      log.debug(`Exam for Ladok ID ${ladokId} is not anonymous.`);
     }
     else {
-      log.error(`There are exams both with and without 's_code' for Ladok ID ${ladokId}, all needs to be present to be anonymous.`);
+      log.warn(`There are exams both with and without 's_code' for Ladok ID ${ladokId}, all needs to be present to be anonymous.`);
     }
   }
 
@@ -157,6 +157,7 @@ async function downloadExam(fileId) {
   const examDateTime = getValue("e_date");
   const examDate = examDateTime.split("T")[0];
   const student = {
+    canvasInternalId: null,
     userId: getValue("s_uid"),
     personNumber: getValue("s_pnr"),
     anonymousCode: getValue("s_code"),
