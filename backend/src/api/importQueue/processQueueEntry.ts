@@ -44,8 +44,12 @@ async function uploadOneExam({ fileId, courseId }) {
   const { content, fileName, student, examDate } = await tentaApi.downloadExam(fileId);
 
   // Always lookup student in Canvas based on "Personnummer"
-  const canvasUser = await canvasApi.getInternalCanvasUserFromPersonNumber(courseId, student.personNumber);
-  log.info(canvasUser);
+  let canvasUser = await canvasApi.getInternalCanvasUserFromPersonNumber(courseId, student.personNumber);
+
+  // TODO: This API in Canvas is DEPRECATED
+  if (!canvasUser) {
+    canvasUser = await canvasApi.getInternalCanvasUserWithDeprecatedStudentList(courseId, student.personNumber);
+  }
 
   if (canvasUser) {
     if (canvasUser.login_id.split("@")[0] != student.userId) {
