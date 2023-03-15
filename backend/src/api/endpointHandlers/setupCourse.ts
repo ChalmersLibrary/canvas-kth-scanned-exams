@@ -37,7 +37,7 @@ async function getSetupStatus(req, res, next) {
   try {
     const courseId = req.params.id;
 
-    const ladokIds = await canvasApi.getAktivitetstillfalleUIDs(courseId);
+    const ladokIds = await canvasApi.getAktivitetstillfalleUUIDsFromSections(courseId);
     throwIfNotExactlyOneLadokId(ladokIds, courseId);
     const ladokId = ladokIds[0];
 
@@ -88,7 +88,7 @@ async function createSpecialAssignment(req, res, next) {
   try {
     const courseId = req.params.id;
 
-    const ladokIds = await canvasApi.getAktivitetstillfalleUIDs(courseId);
+    const ladokIds = await canvasApi.getAktivitetstillfalleUUIDsFromSections(courseId);
     throwIfNotExactlyOneLadokId(ladokIds, courseId);
     const ladokId = ladokIds[0];
 
@@ -106,8 +106,7 @@ async function createSpecialAssignment(req, res, next) {
     }
 
     // If exams are all populated with "s_code" then we need to create an anonymous grading Assignment
-    const isAnonymous = await tentaApi.examIsAnonymous(ladokId + "_CTH"); // TODO: fix this suffix thing
-
+    const isAnonymous = process.env.CANVAS_ASSIGNMENT_FORCE_NON_ANONYMOUS ? false : await tentaApi.examIsAnonymous(ladokId);
     await canvasApi.createAssignment(courseId, ladokId, isAnonymous); 
 
     res.send({
@@ -123,7 +122,7 @@ async function publishSpecialAssignment(req, res, next) {
   try {
     const courseId = req.params.id;
 
-    const ladokIds = await canvasApi.getAktivitetstillfalleUIDs(courseId);
+    const ladokIds = await canvasApi.getAktivitetstillfalleUUIDsFromSections(courseId);
     throwIfNotExactlyOneLadokId(ladokIds, courseId);
     const ladokId = ladokIds[0];
 
