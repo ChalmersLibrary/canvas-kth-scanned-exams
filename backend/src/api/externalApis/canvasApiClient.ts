@@ -535,92 +535,34 @@ interface TCanvasUser {
 };
 
 /**
- * Returns the Canvas Student in a given course based on search (only in course) for a query.
- * This could be personnummer, login_id etc.
+ * Searches Canvas students in a given course based on query (empty for all).
  * 
  * @param courseId Canvas course id
  * @param query Search terms
+ * @returns List of matches
  */
-async function getInternalCanvasUserFromSearch(courseId: number, query: string) {
-  let user: TCanvasUser;
-
-    // In order to handle large user id in response, we parse the raw response with json-bigint
+async function searchCanvasStudentsInCourse(courseId: number, query: string) {
+  // In order to handle large user id in response, we parse the raw response with json-bigint
   const { rawBody: usersBuffer } = await canvas.get<any>(`courses/${courseId}/search_users`, {
+      "per_page": "400", // .listItems<> does not support rawBody, so this is a very bad/quick fix
       "enrollment_type[]": "student",
       "include[]": "uuid",
       "search_term": query
-    },
+    }
   )
   .catch(canvasApiGenericErrorHandler);
   
   let rawUsers = usersBuffer.toString();
-  const users = JsonBig.parse(rawUsers);
+  const parsedUsers = JsonBig.parse(rawUsers);
 
-  if (users.length == 0) {
+  if (parsedUsers.length == 0) {
     log.error(`No match found for [${query}] in Canvas course id [${courseId}].`)
   }
-  else if (users.length > 1) {
-    log.error(`Multiple matches for [${query}] in Canvas course id [${courseId}].`);
 
-    throw new ImportError({
-      type: "multiple_students",
-      message: "More than one student in examroom matches search query.",
-      details: {
-        studentPersonNumber: query,
-        courseId: courseId,
-      },
-    });
-  }
-  else {
-    user = users[0];
-  }
-
-  return user;
-}
-
-/**
- * DEPRECATED (Canvas API): Find enrolled student using student list and matching "sis_user_id".
- * 
- * @param courseId Canvas course id
- * @param studentPersonNumber Person Number (personnummer)
- * @returns 
- */
-async function getInternalCanvasUserWithDeprecatedStudentList(courseId: number, studentPersonNumber: string) {
-  let user: TCanvasUser;
-
-  // TODO: If we're using this, then find a way to cache the results as we otherwise will have a full API request for each student we need to find.
- 
-  // In order to handle large user id in response, we parse the raw response with json-bigint
-  const { rawBody: usersBuffer } = await canvas.get<any>(
-    `courses/${courseId}/students`, 
-  )
-  .catch(canvasApiGenericErrorHandler);
-  
-  let rawUsers = usersBuffer.toString();
-  const users: Array<TCanvasUser> = JsonBig.parse(rawUsers);
-
-  if (users.length == 0) {
-    log.error(`No users in Canvas student list, course id [${courseId}]`)
-  }
-  else {
-    if (users.filter((s) => s.sis_user_id == studentPersonNumber).length > 1) {
-      log.error(`More than one user matches [${studentPersonNumber}] in Canvas student list for course id [${courseId}]`);
-
-      throw new ImportError({
-        type: "multiple_students",
-        message: "More than one student in examroom matches personnummer.",
-        details: {
-          studentPersonNumber: studentPersonNumber,
-          courseId: courseId,
-        },
-      });
-    }
-    else {
-      user = users.find((s) => s.sis_user_id == studentPersonNumber);
-    }
-  }
-
-  return user;
+  return {
+    students: parsedUsers,
+    rawResponse: rawUsers
+  };
 }
 
 export {
@@ -639,6 +581,5 @@ export {
   uploadExam,
   getRoles,
   enrollStudent,
-  getInternalCanvasUserFromSearch,
-  getInternalCanvasUserWithDeprecatedStudentList,
+  searchCanvasStudentsInCourse,
 };

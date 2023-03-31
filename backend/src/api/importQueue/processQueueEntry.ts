@@ -1,4 +1,5 @@
 import log from "skog";
+import JsonBig from "json-bigint";
 import * as canvasApi from "../externalApis/canvasApiClient";
 import * as tentaApi from "../externalApis/tentaApiClient";
 import {
@@ -6,6 +7,7 @@ import {
   updateStatusOfEntryInQueue,
   updateStudentOfEntryInQueue,
 } from "./index";
+import * as courseStudents from "../../courseStudents";
 import { ImportError } from "../error";
 
 const { DEV_FORCE_RANDOM_ERRORS, NODE_ENV } = process.env;
@@ -43,35 +45,61 @@ async function uploadOneExam({ fileId, courseId }) {
   
   const { content, fileName, student, examDate } = await tentaApi.downloadExam(fileId);
 
-  // Always lookup student in Canvas based on "Personnummer"
-  log.debug("Lookup student on " + student.personNumber);
-  let canvasUser = await canvasApi.getInternalCanvasUserFromSearch(courseId, student.personNumber);
+  let courseUsers;
+  let courseUsersCache;
+  let courseUser;
 
-  // Personnummer could have changed, try the login_id/userId (Chalmers only)
-  if (!canvasUser) {
-    log.debug("Lookup student on " + student.userId);
-    canvasUser = await canvasApi.getInternalCanvasUserFromSearch(courseId, student.userId + (!student.userId?.includes("@") ? "@chalmers.se" : ""));
+  try {
+    courseUsersCache = await courseStudents.getCourseStudents(courseId);   
+    courseUsers = JsonBig.parse(courseUsersCache.students);
+  }
+  catch (error) {
+    log.error("No students found in MongoDB cache for course.");
+
+    const courseUsersResponse = await canvasApi.searchCanvasStudentsInCourse(courseId, "");
+    console.log(courseUsersResponse);
+
+    courseUsers = courseUsersResponse.students;
+
+    courseUsersCache = {
+      courseId: courseId,
+      students: courseUsersResponse.rawResponse
+    };
+
+    await courseStudents.addEntry(courseUsersCache);
+
+    log.debug("Added entry to MongoDB cache for course.");
+    log.debug(courseUsersCache);
   }
 
-  // TODO: This API in Canvas is DEPRECATED but it's where GU students are
-  if (!canvasUser) {
-    log.debug("Lookup student in deprecated students API on " + student.personNumber);
-    canvasUser = await canvasApi.getInternalCanvasUserWithDeprecatedStudentList(courseId, student.personNumber);
+  if (!courseUsers) {
+    log.error("Could not find course students!");
   }
 
-  if (canvasUser) {
-    if (canvasUser.login_id.split("@")[0] != student.userId) {
-      log.info(`Student id from Aldoc: [${student.userId}] is translated to student id in Canvas: [${canvasUser.login_id.split("@")[0]}]`);
-      student.userId = canvasUser.login_id.split("@")[0];
+  log.debug("Searching enrolled students for " + student.userId + (!student.userId?.includes("@") ? "@chalmers.se" : ""));
+  courseUser = courseUsers.find(u => u.login_id == student.userId + (!student.userId?.includes("@") ? "@chalmers.se" : ""));
+
+  if (!courseUser) {
+    log.debug("Searching enrolled students for " + student.personNumber);
+    courseUser = courseUsers.find(u => u.sis_user_id == student.personNumber);
+  }
+
+  if (courseUser) {
+    if (courseUser.login_id.split("@")[0] != student.userId) {
+      log.info(`Student id from Aldoc: [${student.userId}] is translated to student id in Canvas: [${courseUser.login_id.split("@")[0]}]`);
+      student.userId = courseUser.login_id.split("@")[0];
     }
 
-    student.canvasInternalId = canvasUser.id;
+    log.debug(typeof (courseUser));
+    log.debug(courseUser);
+
+    student.canvasInternalId = courseUser.id;
+
+    log.info(`Student userId ${student.userId} internal id ${student.canvasInternalId} ${student.firstName} ${student.lastName}`);
   }
   else {
-    log.error(`No record or too many records when searching for student in course room.`)
+    log.error(`Student [${student.firstName} ${student.lastName}] not found in course room, searched for [${student.userId + (!student.userId?.includes("@") ? "@chalmers.se" : "")}] and [${student.personNumber}].`)
   }
-
-  log.info(`Student userId ${student.userId} internal id ${student.canvasInternalId} ${student.firstName} ${student.lastName}`);
 
   // Some business rules
   throwIfStudentMissingUserId({ fileId, fileName, studentUserId: student.canvasInternalId });
