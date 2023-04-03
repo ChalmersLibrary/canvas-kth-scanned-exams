@@ -57,8 +57,6 @@ async function uploadOneExam({ fileId, courseId }) {
     log.error("No students found in MongoDB cache for course.");
 
     const courseUsersResponse = await canvasApi.searchCanvasStudentsInCourse(courseId, "");
-    console.log(courseUsersResponse);
-
     courseUsers = courseUsersResponse.students;
 
     courseUsersCache = {
@@ -90,7 +88,6 @@ async function uploadOneExam({ fileId, courseId }) {
       student.userId = courseUser.login_id.split("@")[0];
     }
 
-    log.debug(typeof (courseUser));
     log.debug(courseUser);
 
     student.canvasInternalId = courseUser.id;
