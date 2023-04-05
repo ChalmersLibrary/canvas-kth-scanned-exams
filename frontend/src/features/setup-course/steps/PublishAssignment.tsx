@@ -16,7 +16,7 @@ export default function CreateAssignment({ courseId }: any) {
       <H2>Publish Assignment</H2>
       <P>
         You have created the assignment. You can edit the assignment and return
-        to the setup process later to publish the assignment or you can now
+        to the setup process later to publish the assignment or you can
         publish it now.
       </P>
       <P>

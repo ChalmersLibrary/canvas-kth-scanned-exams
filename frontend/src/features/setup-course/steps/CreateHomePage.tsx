@@ -21,19 +21,20 @@ export default function CreateHomePage({ onDone, courseId }: any) {
       <P>
         The exam room will be visible for your students, it is important that
         they can see its purpose from the homepage. You can use our recommended
-        homepage or setup the exam room by yourself
+        homepage or setup the exam room by yourself.
       </P>
       <P>
-        <em>The examroom will not be published yet</em>
+        <em>The examroom will not be published yet.</em>
       </P>
       <div className="mt-8">
         <PrimaryButton
+          disabled
           className="sm:w-96"
           onClick={mutate}
           waiting={isLoading}
           success={isSuccess}
         >
-          Use the recommended homepage
+          Use recommended homepage (disabled)
         </PrimaryButton>
         <SecondaryButton className="sm:w-auto" onClick={onDone}>
           Skip this step

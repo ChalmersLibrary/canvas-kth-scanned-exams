@@ -20,6 +20,10 @@ export default function CreateAssignment({ courseId }: any) {
         once it has been created.
       </P>
       <P>
+        Please note that if the scanned exams for this exam room has anonymous codes,
+        the assignment will be created with Anonymous Grading.
+      </P>
+      <P>
         <PrimaryButton
           className="sm:w-96"
           onClick={mutate}
