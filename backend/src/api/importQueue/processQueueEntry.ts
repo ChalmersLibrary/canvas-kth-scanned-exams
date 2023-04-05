@@ -92,7 +92,7 @@ async function uploadOneExam({ fileId, courseId }) {
 
     student.canvasInternalId = courseUser.id;
 
-    log.info(`Student userId ${student.userId} internal id ${student.canvasInternalId} ${student.firstName} ${student.lastName}`);
+    log.info(`Student userId ${student.userId} internal id ${student.canvasInternalId} anonymous code ${student.anonymousCode ? student.anonymousCode : "-"} ${student.firstName} ${student.lastName}`);
   }
   else {
     log.error(`Student [${student.firstName} ${student.lastName}] not found in course room, searched for [${student.userId + (!student.userId?.includes("@") ? "@chalmers.se" : "")}] and [${student.personNumber}].`)
