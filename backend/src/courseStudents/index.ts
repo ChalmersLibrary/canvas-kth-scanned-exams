@@ -3,7 +3,7 @@ import log from "skog";
 
 const { MONGODB_CONNECTION_STRING } = process.env;
 const DB_COLLECTION_NAME = "course_students";
-const DB_COLLECTION_ENTRY_TTL = 900; // 15 mins
+const DB_COLLECTION_ENTRY_TTL = 3600; // 3600ms is 1h
 
 const databaseClient = new MongoClient(MONGODB_CONNECTION_STRING, {
   maxPoolSize: 5,
