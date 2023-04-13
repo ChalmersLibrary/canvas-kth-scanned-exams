@@ -56,8 +56,10 @@ async function uploadOneExam({ fileId, courseId }) {
   catch (error) {
     log.error("No students found in MongoDB cache for course.");
 
-    const courseUsersResponse = await canvasApi.searchCanvasStudentsInCourse(courseId, "");
+    const courseUsersResponse = await canvasApi.getCanvasStudentsInCourse(courseId);
     courseUsers = courseUsersResponse.students;
+
+    log.debug(`Found [${courseUsersResponse.students.length}] students in Canvas course [${courseId}], adding to cache.`);
 
     courseUsersCache = {
       courseId: courseId,
@@ -88,14 +90,12 @@ async function uploadOneExam({ fileId, courseId }) {
       student.userId = courseUser.login_id.split("@")[0];
     }
 
-    log.debug(courseUser);
-
     student.canvasInternalId = courseUser.id;
 
     log.info(`Student userId ${student.userId} internal id ${student.canvasInternalId} anonymous code ${student.anonymousCode ? student.anonymousCode : "-"} ${student.firstName} ${student.lastName}`);
   }
   else {
-    log.error(`Student [${student.firstName} ${student.lastName}] not found in course room, searched for [${student.userId + (!student.userId?.includes("@") ? "@chalmers.se" : "")}] and [${student.personNumber}].`)
+    log.error(`Student [${student.firstName} ${student.lastName}] not found in course [${courseId}], searched for [${student.userId + (!student.userId?.includes("@") ? "@chalmers.se" : "")}] and [${student.personNumber}].`)
   }
 
   // Some business rules

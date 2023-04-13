@@ -30,6 +30,7 @@
     "@kth/canvas-api": "^4.1.0",
     "@kth/reqvars": "^2.0.1",
     "@swc/core": ">=1.2.0",
+    "@web3-storage/parse-link-header": "^3.1.0",
     "connect-mongodb-session": "^3.1.0",
     "cookie-parser": "^1.4.5",
     "dotenv": "^8.2.0",

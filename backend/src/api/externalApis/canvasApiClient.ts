@@ -3,6 +3,7 @@ import FormData from "formdata-node";
 import got from "got";
 import log from "skog";
 import JsonBig from "json-bigint";
+import { parseLinkHeader } from "@web3-storage/parse-link-header";
 import { getAktivitetstillfalle } from "./ladokApiClient";
 import {
   EndpointError,
@@ -385,7 +386,6 @@ async function uploadExam(
     log.debug(
       "Time to generate upload token: " + (Date.now() - reqTokenStart) + "ms"
     );
-    log.debug(slot);
 
     const uploadFileStart = Date.now();
 
@@ -535,6 +535,67 @@ interface TCanvasUser {
 };
 
 /**
+ * Returns all students in a given Canvas course, based on student enrollment type.
+ * Uses json-bigint to correctly handle large global user ids.
+ * 
+ * @param courseId Canvas course id
+ * @returns Object with both parsed and stringified version of student list
+ */
+async function getCanvasStudentsInCourse(courseId: number) {
+  let studentsList = [];
+
+  let requestParameters = {
+    "enrollment_type[]": "student",
+    "per_page": "50",
+    "page": "1",
+  };
+
+  log.debug(`Discovering students in Canvas API for course with id [${courseId}]...`);
+
+  while (requestParameters.page) {
+    console.log(requestParameters);
+
+    const { rawBody: usersBuffer, headers: responseHeaders } = await canvas.get<any>(`courses/${courseId}/users`, {
+      ...requestParameters
+    })
+    .catch(canvasApiGenericErrorHandler);
+      
+    const rawUsers = usersBuffer.toString();
+    const parsedUsers = JsonBig.parse(rawUsers);
+  
+    if (!parsedUsers.length) {
+      log.error(`No students found in Canvas course id [${courseId}].`)
+      requestParameters.page = "";
+    }
+    else {
+      for (const user of parsedUsers) {
+        studentsList.push({
+          id: user.id,
+          name: user.name,
+          sis_user_id: user.sis_user_id,
+          login_id: user.login_id,
+          root_account: user.root_account
+        });
+      }
+
+      const links = parseLinkHeader(responseHeaders["link"].toString());
+
+      if (links.next) {
+        requestParameters.page = links.next.page;
+      }
+      else {
+        requestParameters.page = "";
+      }
+    }
+  }
+
+  return {
+    students: studentsList,
+    rawResponse: JsonBig.stringify(studentsList)
+  };
+}
+
+/**
  * Searches Canvas students in a given course based on query (empty for all).
  * 
  * @param courseId Canvas course id
@@ -581,5 +642,6 @@ export {
   uploadExam,
   getRoles,
   enrollStudent,
+  getCanvasStudentsInCourse,
   searchCanvasStudentsInCourse,
 };
