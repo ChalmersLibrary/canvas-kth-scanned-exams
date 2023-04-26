@@ -26,6 +26,6 @@ COPY --from=frontend /usr/src/app/frontend/build frontend/build
 COPY --from=backend /usr/src/app/backend/node_modules backend/node_modules
 COPY . .
 
-EXPOSE 4000
+EXPOSE 4443
 
 CMD cd backend && export PINO_LOG_LEVEL="debug" && env && npm run start

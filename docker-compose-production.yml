@@ -1,0 +1,17 @@
+services:
+  scanned-exams:
+    container_name: scanned-exams
+    image: scanned-exams
+    restart: no
+    build: .
+    env_file:
+      - .env.prod
+    ports:
+      - "4443:4443"
+    links:
+      - mongo
+  mongo:
+    container_name: mongo
+    image: mongo:latest
+    ports:
+      - '27017:27017'
