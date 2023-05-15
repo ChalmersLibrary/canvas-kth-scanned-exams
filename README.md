@@ -3,6 +3,9 @@
 Application that downloads exams from the "Windream/AlcomREST API" and uploads them into a Canvas course Assignment. The examiner can then use
 Speedgrader or download/re-upload the entries for grading each student submission.
 
+## User documentation
+
+[Basic user documentation for the application](docs/README.md)
 
 ## Changes
 
