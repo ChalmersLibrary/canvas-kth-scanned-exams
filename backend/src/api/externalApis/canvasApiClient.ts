@@ -206,7 +206,7 @@ async function createAssignment(courseId, ladokId, anonymize = false, language =
 
     // TODO: Chalmers: Check that this date is really correct?
     examination = {
-      examDate: course.start_at.substr(0, 10),
+      examDate: course.start_at? course.start_at.substring(0, 10) : new Date().toISOString().substring(0, 10)
     };
   }
 
